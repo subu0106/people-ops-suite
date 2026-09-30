@@ -14,9 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import LoadingButton from "@mui/lab/LoadingButton";
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Chip,
@@ -28,10 +28,8 @@ import {
   useTheme,
 } from "@mui/material";
 import {
-  Briefcase,
   CheckCircle,
   Globe,
-  MapPin,
   Star,
   User,
   Zap,
@@ -39,24 +37,11 @@ import {
 
 import wso2LogoBlack from "@assets/images/wso2-logo_black.svg";
 import wso2LogoWhite from "@assets/images/wso2-logo_white.svg";
-import { mockJobs } from "@utils/mockData";
 import { useAppAuthContext } from "@context/AuthContext";
 
 const LoginScreen = () => {
   const { appSignIn, appSignOut } = useAppAuthContext();
   const theme = useTheme();
-
-  const featuredJobs = mockJobs.slice(0, 3);
-
-  const deptColors: Record<string, string> = {
-    ENGINEERING: "#3B82F6",
-    "CUSTOMER SUCCESS": "#8B5CF6",
-    MARKETING: "#10B981",
-    SALES: "#EF4444",
-    "SALES ENGINEERING": "#F59E0B",
-    "People Operations": "#EC4899",
-    FINANCE: "#06B6D4",
-  };
 
   return (
     <Box
@@ -115,10 +100,10 @@ const LoginScreen = () => {
               size="small"
               sx={{
                 mb: 2,
-                backgroundColor: "#FF730020",
-                color: "#FF7300",
+                backgroundColor: "#ff670020",
+                color: "#ff6700",
                 fontWeight: 600,
-                border: "1px solid #FF730040",
+                border: "1px solid #ff670040",
               }}
             />
             <Typography
@@ -126,21 +111,21 @@ const LoginScreen = () => {
               sx={{ fontWeight: 800, lineHeight: 1.2, mb: 2, color: "text.primary" }}
             >
               Build the Future of{" "}
-              <Box component="span" sx={{ color: "#FF7300" }}>
+              <Box component="span" sx={{ color: "#ff6700" }}>
                 Open Source
               </Box>{" "}
               Integration
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4, lineHeight: 1.8 }}>
               Create your{" "}
-              <Box component="span" sx={{ fontWeight: 700, color: "#FF7300" }}>
+              <Box component="span" sx={{ fontWeight: 700, color: "#ff6700" }}>
                 Candidate Passport
               </Box>{" "}
               — a single profile that travels with you across all WSO2 job applications. No more
               uploading CVs repeatedly.
             </Typography>
             <Stack direction="row" gap={2} flexWrap="wrap">
-              <LoadingButton
+              <Button
                 variant="contained"
                 size="large"
                 onClick={() => {
@@ -152,14 +137,14 @@ const LoginScreen = () => {
                   borderRadius: "10px",
                   px: 4,
                   py: 1.5,
-                  background: "linear-gradient(135deg, #FF7300, #FF9500)",
+                  background: "linear-gradient(135deg, #ff6700, #FF9500)",
                   boxShadow: "0 4px 20px rgba(255, 115, 0, 0.3)",
                   "&:hover": { boxShadow: "0 6px 24px rgba(255, 115, 0, 0.4)" },
                 }}
               >
                 Create Candidate Profile
-              </LoadingButton>
-              <LoadingButton
+              </Button>
+              <Button
                 variant="outlined"
                 size="large"
                 onClick={() => {
@@ -169,18 +154,17 @@ const LoginScreen = () => {
                 sx={{ fontWeight: 600, borderRadius: "10px", px: 4, py: 1.5 }}
               >
                 Sign In
-              </LoadingButton>
+              </Button>
             </Stack>
 
             {/* Social proof */}
             <Stack direction="row" gap={3} mt={4} flexWrap="wrap">
               {[
-                { icon: <Briefcase size={14} />, label: `${mockJobs.length} Open Roles` },
                 { icon: <Globe size={14} />, label: "5 Countries" },
                 { icon: <Star size={14} />, label: "4.8★ Glassdoor" },
               ].map((item, i) => (
                 <Stack key={i} direction="row" alignItems="center" gap={0.5}>
-                  <Box sx={{ color: "#FF7300" }}>{item.icon}</Box>
+                  <Box sx={{ color: "#ff6700" }}>{item.icon}</Box>
                   <Typography variant="caption" fontWeight={600} color="text.secondary">
                     {item.label}
                   </Typography>
@@ -210,7 +194,7 @@ const LoginScreen = () => {
                     sx={{
                       p: 1,
                       borderRadius: "10px",
-                      background: "linear-gradient(135deg, #FF7300, #FF9500)",
+                      background: "linear-gradient(135deg, #ff6700, #FF9500)",
                     }}
                   >
                     <User size={20} color="#fff" />
@@ -251,12 +235,12 @@ const LoginScreen = () => {
                     borderRadius: "8px",
                     backgroundColor:
                       theme.palette.mode === "dark" ? "rgba(255,115,0,0.1)" : "#FFF7F0",
-                    border: "1px solid #FF730030",
+                    border: "1px solid #ff670030",
                   }}
                 >
                   <Stack direction="row" alignItems="center" gap={1}>
-                    <Zap size={14} color="#FF7300" />
-                    <Typography fontSize="12px" color="#FF7300" fontWeight={600}>
+                    <Zap size={14} color="#ff6700" />
+                    <Typography fontSize="12px" color="#ff6700" fontWeight={600}>
                       Sign in or create a profile to get started
                     </Typography>
                   </Stack>
@@ -266,75 +250,6 @@ const LoginScreen = () => {
           </Grid>
         </Grid>
       </Container>
-
-      {/* Featured Jobs */}
-      <Box
-        sx={{
-          py: 6,
-          backgroundColor:
-            theme.palette.mode === "dark" ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
-          borderTop: `1px solid ${theme.palette.divider}`,
-        }}
-      >
-        <Container maxWidth="lg">
-          <Typography variant="h5" fontWeight={700} mb={1}>
-            Featured Opportunities
-          </Typography>
-          <Typography color="text.secondary" mb={4}>
-            Explore roles across engineering, cloud, product, and more.
-          </Typography>
-
-          <Grid container spacing={2}>
-            {featuredJobs.map((job) => (
-              <Grid key={job.id} size={{ xs: 12, md: 4 }}>
-                <Card
-                  elevation={0}
-                  sx={{
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: "12px",
-                    height: "100%",
-                    transition: "all 0.2s",
-                    "&:hover": {
-                      borderColor: "#FF7300",
-                      boxShadow: "0 4px 20px rgba(255, 115, 0, 0.1)",
-                      transform: "translateY(-2px)",
-                    },
-                  }}
-                >
-                  <CardContent sx={{ p: 2.5 }}>
-                    <Chip
-                      label={job.team}
-                      size="small"
-                      sx={{
-                        mb: 1.5,
-                        backgroundColor: `${deptColors[job.team] ?? "#6B7280"}20`,
-                        color: deptColors[job.team] ?? "#6B7280",
-                        fontWeight: 600,
-                        fontSize: "11px",
-                      }}
-                    />
-                    <Typography fontWeight={700} mb={1} sx={{ lineHeight: 1.3 }}>
-                      {job.title}
-                    </Typography>
-                    <Stack direction="row" alignItems="center" gap={0.5} mb={0.5}>
-                      <MapPin size={12} color={theme.palette.text.secondary} />
-                      <Typography fontSize="12px" color="text.secondary">
-                        {job.country.join(", ")}
-                      </Typography>
-                    </Stack>
-                    <Stack direction="row" alignItems="center" gap={0.5}>
-                      <Briefcase size={12} color={theme.palette.text.secondary} />
-                      <Typography fontSize="12px" color="text.secondary">
-                        {job.jobType}
-                      </Typography>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Container>
-      </Box>
 
       {/* Footer */}
       <Box
