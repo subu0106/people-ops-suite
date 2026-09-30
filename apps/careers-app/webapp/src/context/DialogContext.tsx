@@ -18,7 +18,6 @@ import CloseIcon from "@mui/icons-material/Close";
 import DoneIcon from "@mui/icons-material/Done";
 import SaveAltIcon from "@mui/icons-material/SaveAlt";
 import SendIcon from "@mui/icons-material/Send";
-import LoadingButton from "@mui/lab/LoadingButton";
 import { IconButton, Stack } from "@mui/material";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -96,7 +95,7 @@ const ConfirmationModalContextProvider: React.FC<ConfirmationModalContextProvide
   const dialogContext: ConfirmationDialogContextType = { showConfirmation: handleShow };
 
   const handleOk = () => {
-    content && content.action();
+    if (content) content.action();
     onHide();
   };
 
@@ -132,13 +131,12 @@ const ConfirmationModalContextProvider: React.FC<ConfirmationModalContextProvide
               <Button sx={{ borderRadius: 2 }} onClick={onHide} variant="outlined" size="small">
                 {content?.cancelText ?? "No"}
               </Button>
-              <LoadingButton
+              <Button
                 type="submit"
                 sx={{ borderRadius: 2, boxShadow: "none", border: 0.5, borderColor: "divider" }}
                 variant="contained"
                 size="small"
                 onClick={handleOk}
-                loadingPosition="start"
                 startIcon={
                   content.type === "update" ? (
                     <SaveAltIcon />
@@ -150,7 +148,7 @@ const ConfirmationModalContextProvider: React.FC<ConfirmationModalContextProvide
                 }
               >
                 {content?.okText ?? "Yes"}
-              </LoadingButton>
+              </Button>
             </Stack>
           </DialogActions>
         </Dialog>

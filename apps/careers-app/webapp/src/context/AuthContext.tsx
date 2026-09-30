@@ -36,10 +36,14 @@ const AuthContext = React.createContext<AuthContextType>({} as AuthContextType);
 const timeout = 15 * 60 * 1000;
 const promptBeforeIdle = 4_000;
 
+// TEMPORARY (local dev only): skip the Asgardeo login flow entirely and enter the
+// app as a stub candidate. Set back to false to restore real login.
+const BYPASS_AUTH_FOR_DEV = false;
+
 const AppAuthProvider = (props: { children: React.ReactNode }) => {
   const { signIn, signOut, state, getBasicUserInfo, getDecodedIDToken } = useAuthContext();
-  const isAuthenticated = state.isAuthenticated;
-  const isLoading = state.isLoading;
+  const isAuthenticated = BYPASS_AUTH_FOR_DEV || state.isAuthenticated;
+  const isLoading = !BYPASS_AUTH_FOR_DEV && state.isLoading;
 
   const [sessionWarningOpen, setSessionWarningOpen] = useState<boolean>(false);
   const [userLoaded, setUserLoaded] = useState<boolean>(false);
@@ -47,7 +51,7 @@ const AppAuthProvider = (props: { children: React.ReactNode }) => {
   const dispatch = useAppDispatch();
 
   const onPrompt = () => {
-    isAuthenticated && setSessionWarningOpen(true);
+    if (isAuthenticated) setSessionWarningOpen(true);
   };
 
   const { activate } = useIdleTimer({
@@ -63,7 +67,35 @@ const AppAuthProvider = (props: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    if (!isAuthenticated || userLoaded) return;
+    if (userLoaded) return;
+
+    if (BYPASS_AUTH_FOR_DEV) {
+      dispatch(
+        setUserAuthData({
+          userInfo: {
+            username: "dev-candidate",
+            givenName: "Dev",
+            familyName: "Candidate",
+            email: "dev-candidate@example.com",
+          } as never,
+          decodedIdToken: { sub: "dev-candidate" } as never,
+        }),
+      );
+      dispatch(
+        setUserInfo({
+          personId: "dev-candidate",
+          firstName: "Dev",
+          lastName: "Candidate",
+          workEmail: "dev-candidate@example.com",
+          employeeThumbnail: null,
+          jobRole: null,
+        }),
+      );
+      setUserLoaded(true);
+      return;
+    }
+
+    if (!isAuthenticated) return;
 
     const loadUser = async () => {
       try {
@@ -80,13 +112,14 @@ const AppAuthProvider = (props: { children: React.ReactNode }) => {
           }),
         );
         setUserLoaded(true);
-      } catch {
+      } catch (err) {
+        console.error("Auth loadUser() failed — signing out:", err);
         signOut();
       }
     };
 
     loadUser();
-  }, [isAuthenticated, userLoaded, getBasicUserInfo, getDecodedIDToken, dispatch]);
+  }, [isAuthenticated, userLoaded, getBasicUserInfo, getDecodedIDToken, dispatch, signOut]);
 
   const appSignIn = useCallback(() => {
     signIn();
