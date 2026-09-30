@@ -18,9 +18,11 @@ import { Navigate, RouterProvider, createBrowserRouter } from "react-router-dom"
 
 import { useMemo } from "react";
 
+import AppShell from "@component/common/AppShell";
 import Layout from "@layout/Layout";
 import NotFoundPage from "@layout/pages/404";
 import { RootState, useAppSelector } from "@slices/store";
+import { View } from "@view/index";
 
 import { getActiveRoutesV2, routes } from "../route";
 
@@ -31,14 +33,23 @@ const AppHandler = () => {
     () =>
       createBrowserRouter([
         {
-          path: "/",
-          element: <Layout />,
+          element: <AppShell />,
           errorElement: <NotFoundPage />,
           children: [
-            { index: true, element: <Navigate to="/dashboard" replace /> },
-            ...getActiveRoutesV2(routes, auth.roles),
+            { path: "/", element: <Navigate to="/jobs" replace /> },
+            { path: "/careers/internships", element: <View.internships /> },
+            { path: "/jobs", element: <View.jobs /> },
+            { path: "/jobs/:id", element: <View.jobDetail /> },
+            { path: "/profile", element: <View.profile /> },
+            { path: "/applications", element: <View.applications /> },
           ],
         },
+        {
+          element: <Layout />,
+          errorElement: <NotFoundPage />,
+          children: [...getActiveRoutesV2(routes, auth.roles)],
+        },
+        { path: "*", element: <NotFoundPage /> },
       ]),
     [auth.roles],
   );

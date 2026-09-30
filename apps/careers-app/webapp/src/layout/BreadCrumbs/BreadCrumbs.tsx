@@ -19,11 +19,9 @@ import Breadcrumbs from "@mui/material/Breadcrumbs";
 import { Link, useLocation } from "react-router-dom";
 
 const routeLabels: Record<string, string> = {
-  dashboard: "Dashboard",
   profile: "My Profile",
   jobs: "Browse Jobs",
   applications: "My Applications",
-  saved: "Saved Jobs",
 };
 
 export default function BasicBreadcrumbs() {

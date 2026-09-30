@@ -31,17 +31,17 @@ export default function NotFoundPage() {
         textAlign: "center",
       }}
     >
-      <Typography variant="h1" fontWeight={800} sx={{ fontSize: "80px", color: "#FF7300" }}>
+      <Typography variant="h1" fontWeight={800} sx={{ fontSize: "80px", color: "#ff6700" }}>
         404
       </Typography>
       <Typography variant="h5" fontWeight={600}>
         Page Not Found
       </Typography>
       <Typography color="text.secondary">
-        The page you are looking for doesn&apos;t exist or has been moved.
+        The page you are looking for doesn&apos;t exist.
       </Typography>
-      <Button variant="contained" onClick={() => navigate("/dashboard")} sx={{ mt: 1 }}>
-        Go to Dashboard
+      <Button variant="contained" onClick={() => navigate("/")} sx={{ mt: 1 }}>
+        Go to Home
       </Button>
     </Box>
   );

@@ -14,14 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-  AssignmentOutlined,
-  BookmarkBorderOutlined,
-  DashboardOutlined,
-  HelpOutlineOutlined,
-  PersonOutlined,
-  WorkOutlineOutlined,
-} from "@mui/icons-material";
+import { HelpOutlineOutlined } from "@mui/icons-material";
 import type { RouteObject } from "react-router-dom";
 
 import React from "react";
@@ -32,49 +25,6 @@ import { isIncludedRole } from "@utils/utils";
 import { View } from "@view/index";
 
 export const routes: RouteObjectWithRole[] = [
-  {
-    path: "/dashboard",
-    text: "Dashboard",
-    icon: React.createElement(DashboardOutlined, { sx: { fontSize: 20 } }),
-    element: React.createElement(View.dashboard),
-    allowRoles: [Role.CANDIDATE, Role.ADMIN],
-  },
-  {
-    path: "/profile",
-    text: "My Profile",
-    icon: React.createElement(PersonOutlined, { sx: { fontSize: 20 } }),
-    element: React.createElement(View.profile),
-    allowRoles: [Role.CANDIDATE, Role.ADMIN],
-  },
-  {
-    path: "/jobs",
-    text: "Browse Jobs",
-    icon: React.createElement(WorkOutlineOutlined, { sx: { fontSize: 20 } }),
-    element: React.createElement(View.jobs),
-    allowRoles: [Role.CANDIDATE, Role.ADMIN],
-  },
-  {
-    path: "/jobs/:id",
-    text: "Job Detail",
-    icon: React.createElement(WorkOutlineOutlined, { sx: { fontSize: 20 } }),
-    element: React.createElement(View.jobDetail),
-    allowRoles: [Role.CANDIDATE, Role.ADMIN],
-    bottomNav: true,
-  },
-  {
-    path: "/applications",
-    text: "My Applications",
-    icon: React.createElement(AssignmentOutlined, { sx: { fontSize: 20 } }),
-    element: React.createElement(View.applications),
-    allowRoles: [Role.CANDIDATE, Role.ADMIN],
-  },
-  {
-    path: "/saved",
-    text: "Saved Jobs",
-    icon: React.createElement(BookmarkBorderOutlined, { sx: { fontSize: 20 } }),
-    element: React.createElement(View.savedJobs),
-    allowRoles: [Role.CANDIDATE, Role.ADMIN],
-  },
   {
     path: "/help",
     text: "Help",

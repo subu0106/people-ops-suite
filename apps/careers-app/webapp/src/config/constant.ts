@@ -32,9 +32,6 @@ export const SnackMessage = {
   warning: {},
 };
 
-export const APP_DESC =
-  "Build your Candidate Passport and apply to WSO2 jobs with a single profile.";
-
 export const redirectUrl = "careers-app-redirect-url";
 
 export enum ApplicationStatus {
@@ -44,15 +41,3 @@ export enum ApplicationStatus {
   Offer = "Offer",
   Rejected = "Rejected",
 }
-
-export enum Department {
-  Engineering = "Engineering",
-  Cloud = "Cloud",
-  DevRel = "Developer Relations",
-  Product = "Product",
-  Sales = "Sales",
-  HR = "Human Resources",
-  Marketing = "Marketing",
-}
-
-export const JOB_TYPES = ["Full Time", "Internship", "Consultancy", "Permanent"] as const;
