@@ -94,7 +94,7 @@ const Header = () => {
                       height: 32,
                       fontSize: "13px",
                       fontWeight: 700,
-                      backgroundColor: "#FF7300",
+                      backgroundColor: "#ff6700",
                     }}
                     src={user.userInfo?.employeeThumbnail || ""}
                   >

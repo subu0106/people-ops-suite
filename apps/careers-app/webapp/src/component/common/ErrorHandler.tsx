@@ -41,7 +41,7 @@ const ErrorHandler = (props: ErrorHandlerProps) => {
             textAlign: "center",
           }}
         >
-          <AlertTriangle size={48} color="#FF7300" />
+          <AlertTriangle size={48} color="#ff6700" />
           <Typography variant="h5" fontWeight={600}>
             Something went wrong
           </Typography>

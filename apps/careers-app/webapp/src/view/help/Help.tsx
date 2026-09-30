@@ -20,7 +20,7 @@ import { BookOpen, HelpCircle, Shield, Zap } from "lucide-react";
 const Help = () => {
   const items = [
     {
-      icon: <Shield size={22} color="#FF7300" />,
+      icon: <Shield size={22} color="#ff6700" />,
       title: "What is a Candidate Passport?",
       desc: "Your Candidate Passport is a persistent professional profile that you build once and use to apply to any WSO2 job. No more filling out forms for every application.",
     },
@@ -80,7 +80,7 @@ const Help = () => {
         </Typography>
         <Typography fontSize="14px" color="text.secondary">
           Contact the People Operations team at{" "}
-          <Box component="span" sx={{ color: "#FF7300", fontWeight: 600 }}>
+          <Box component="span" sx={{ color: "#ff6700", fontWeight: 600 }}>
             people-ops@wso2.com
           </Box>
         </Typography>

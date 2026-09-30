@@ -36,7 +36,7 @@ const ProfileSection = ({ title, icon, children, editContent }: ProfileSectionPr
       <CardContent sx={{ p: 3 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
           <Stack direction="row" alignItems="center" gap={1}>
-            {icon && <Box sx={{ color: "#FF7300", display: "flex" }}>{icon}</Box>}
+            {icon && <Box sx={{ color: "#ff6700", display: "flex" }}>{icon}</Box>}
             <Typography fontWeight={700} fontSize="15px">
               {title}
             </Typography>
