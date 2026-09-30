@@ -39,9 +39,14 @@ const Applications = () => {
   const applications = useAppSelector((state: RootState) => state.careers.applications);
 
   return (
-    <Box>
-      <Typography variant="h5" fontWeight={700} mb={0.5} color="text.primary">
-        My Applications
+    <Box sx={{ maxWidth: 1080, mx: "auto", px: { xs: 2, md: 3 }, py: { xs: 4, md: 5 } }}>
+      <Typography variant="h2" fontWeight={700} mb={0.5}>
+        <Box component="span" sx={{ color: "#ff6700" }}>
+          My
+        </Box>{" "}
+        <Box component="span" sx={{ color: "#17223A" }}>
+          Applications
+        </Box>
       </Typography>
       <Typography color="text.secondary" fontSize="14px" mb={3}>
         Track the status of all your job applications.

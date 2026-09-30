@@ -80,6 +80,8 @@ export interface CandidateProfile {
   email: string;
   phone: string;
   country: string;
+  address: string;
+  university: string;
   linkedIn: string;
   github: string;
   currentRole: string;

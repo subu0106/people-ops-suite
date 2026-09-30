@@ -14,80 +14,201 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Grid,
-  IconButton,
-  Stack,
-  TextField,
-  Tooltip,
-  Typography,
-} from "@mui/material";
-import {
-  Briefcase,
-  FileText,
-  Github,
-  Globe,
-  Link as LinkIcon,
-  Linkedin,
-  Mail,
-  MapPin,
-  Phone,
-  Plus,
-  Shield,
-  Star,
-  Trash2,
-} from "lucide-react";
-import { useState } from "react";
+import { Avatar, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, FormControlLabel,
+ Grid, IconButton, MenuItem, Radio, RadioGroup, Select, Stack, TextField, Tooltip, Typography } from "@mui/material";
+import { Briefcase, Check, Download, FileText, Github, Globe,
+   Link as LinkIcon, Linkedin, Mail, MapPin, Phone, Plus, Shield, Star, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+
+import { useAuthContext } from "@asgardeo/auth-react";
 
 import ProfileSection from "@component/careers/ProfileSection";
-import { addSkill, removeSkill, updateProfile } from "@slices/careersSlice/careers";
-import { enqueueSnackbarMessage } from "@slices/commonSlice/common";
 import { SnackMessage } from "@config/constant";
+import {
+  activateResume,
+  addSkill,
+  deleteResume,
+  loadProfile,
+  removeSkill,
+  submitApplication,
+  updateProfile,
+  uploadResume,
+} from "@slices/careersSlice/careers";
+import { enqueueSnackbarMessage } from "@slices/commonSlice/common";
 import { RootState, useAppDispatch, useAppSelector } from "@slices/store";
+import { State } from "@/types/types";
+import { downloadResume } from "@utils/profileService";
+import { VacancyDetail, fetchVacancyDetail } from "@utils/vacancyService";
+
+const MAX_RESUME_BYTES = 5 * 1024 * 1024;
 
 const Profile = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { getAccessToken } = useAuthContext();
+
   const profile = useAppSelector((state: RootState) => state.careers.profile);
+  const profileState = useAppSelector((state: RootState) => state.careers.profileState);
+
+  const applyForJobId = searchParams.get("applyFor");
+  const [applyForJob, setApplyForJob] = useState<VacancyDetail | null>(null);
+  const [selectedResumeId, setSelectedResumeId] = useState("");
+  const [authorized, setAuthorized] = useState<"yes" | "no" | "">("");
+  const [consentData, setConsentData] = useState(false);
+  const [consentChecks, setConsentChecks] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const [newSkill, setNewSkill] = useState("");
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [basicForm, setBasicForm] = useState({
     firstName: profile.firstName,
     lastName: profile.lastName,
     email: profile.email,
     phone: profile.phone,
     country: profile.country,
+    address: profile.address,
     linkedIn: profile.linkedIn,
     github: profile.github,
   });
   const [profForm, setProfForm] = useState({
     currentRole: profile.currentRole,
     yearsOfExperience: profile.yearsOfExperience,
+    university: profile.university,
     summary: profile.summary,
   });
 
+  useEffect(() => {
+    getAccessToken().then((token) => dispatch(loadProfile(token)));
+  }, [dispatch, getAccessToken]);
+
+  // Re-seed the edit forms whenever a fresh profile lands (initial load, or
+  // after any save round-trips through the backend).
+  useEffect(() => {
+    setBasicForm({
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      phone: profile.phone,
+      country: profile.country,
+      address: profile.address,
+      linkedIn: profile.linkedIn,
+      github: profile.github,
+    });
+    setProfForm({
+      currentRole: profile.currentRole,
+      yearsOfExperience: profile.yearsOfExperience,
+      university: profile.university,
+      summary: profile.summary,
+    });
+  }, [profile]);
+
+  useEffect(() => {
+    if (!selectedResumeId) {
+      const active = profile.resumes.find((r) => r.isActive) ?? profile.resumes[0];
+      if (active) setSelectedResumeId(active.id);
+    }
+  }, [profile.resumes, selectedResumeId]);
+
+  useEffect(() => {
+    if (!applyForJobId) {
+      setApplyForJob(null);
+      return;
+    }
+    getAccessToken()
+      .then((token) => fetchVacancyDetail(applyForJobId, token))
+      .then(setApplyForJob)
+      .catch(() => setApplyForJob(null));
+  }, [applyForJobId, getAccessToken]);
+
   const handleSaveBasic = () => {
-    dispatch(updateProfile(basicForm));
-    dispatch(enqueueSnackbarMessage({ message: SnackMessage.success.profileUpdated, type: "success" }));
+    getAccessToken().then((token) => {
+      dispatch(updateProfile({ accessToken: token, partial: basicForm }));
+      dispatch(enqueueSnackbarMessage({ message: SnackMessage.success.profileUpdated, type: "success" }));
+    });
   };
 
   const handleSaveProf = () => {
-    dispatch(updateProfile(profForm));
-    dispatch(enqueueSnackbarMessage({ message: SnackMessage.success.profileUpdated, type: "success" }));
+    getAccessToken().then((token) => {
+      dispatch(updateProfile({ accessToken: token, partial: profForm }));
+      dispatch(enqueueSnackbarMessage({ message: SnackMessage.success.profileUpdated, type: "success" }));
+    });
   };
 
   const handleAddSkill = () => {
     const trimmed = newSkill.trim();
-    if (trimmed) {
-      dispatch(addSkill(trimmed));
+    if (!trimmed) return;
+    getAccessToken().then((token) => {
+      dispatch(addSkill({ accessToken: token, skill: trimmed }));
       setNewSkill("");
+    });
+  };
+
+  const handleResumeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setResumeError("Only PDF files are accepted.");
+      return;
     }
+    if (file.size > MAX_RESUME_BYTES) {
+      setResumeError("File must be 5MB or smaller.");
+      return;
+    }
+    setResumeError(null);
+    getAccessToken().then((token) => {
+      dispatch(uploadResume({ accessToken: token, file }))
+        .unwrap()
+        .then(() => {
+          dispatch(enqueueSnackbarMessage({ message: SnackMessage.success.resumeUploaded, type: "success" }));
+        })
+        .catch(() => setResumeError("Upload failed. Please try again."));
+    });
+  };
+
+  const handleActivateResume = (resumeId: string) => {
+    getAccessToken().then((token) => {
+      dispatch(activateResume({ accessToken: token, resumeId }));
+    });
+  };
+
+  const handleDeleteResume = (resumeId: string) => {
+    getAccessToken().then((token) => {
+      dispatch(deleteResume({ accessToken: token, resumeId }))
+        .unwrap()
+        .catch(() => setResumeError("This resume has been used in an application and can't be deleted."));
+    });
+  };
+
+  const handleDownloadResume = (resumeId: string, name: string) => {
+    getAccessToken().then((token) => downloadResume(token, resumeId, name));
+  };
+
+  const applyFormValid =
+    !!applyForJob && !!selectedResumeId && !!authorized && consentData && consentChecks;
+
+  const handleSubmitApplication = () => {
+    if (!applyFormValid || !applyForJob) return;
+    setSubmitting(true);
+    getAccessToken()
+      .then((token) =>
+        dispatch(submitApplication({ accessToken: token, jobId: applyForJob.id, resumeId: selectedResumeId })).unwrap(),
+      )
+      .then(() => {
+        dispatch(enqueueSnackbarMessage({ message: SnackMessage.success.applicationSubmitted, type: "success" }));
+        setSearchParams({});
+        navigate("/applications");
+      })
+      .catch((err) => {
+        const message =
+          err?.response?.data?.detail ?? SnackMessage.error.submitApplication;
+        dispatch(enqueueSnackbarMessage({ message, type: "error" }));
+      })
+      .finally(() => setSubmitting(false));
   };
 
   const getCompletionColor = () => {
@@ -96,25 +217,141 @@ const Profile = () => {
     return "#EF4444";
   };
 
+  if (profileState === State.loading && !profile.personId) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
+        <CircularProgress size={32} sx={{ color: "#ff6700" }} />
+      </Box>
+    );
+  }
+
   return (
-    <Box>
+    <Box sx={{ maxWidth: 1080, mx: "auto", px: { xs: 2, md: 3 }, py: { xs: 4, md: 5 } }}>
       {/* Header */}
       <Stack direction="row" alignItems="flex-start" justifyContent="space-between" mb={3}>
         <Box>
-          <Typography variant="h5" fontWeight={700} mb={0.5} color="text.primary">
-            Candidate Passport
+          <Typography variant="h2" fontWeight={700} mb={0.5}>
+            <Box component="span" sx={{ color: "#ff6700" }}>
+              Candidate
+            </Box>{" "}
+            <Box component="span" sx={{ color: "#17223A" }}>
+              Passport
+            </Box>
           </Typography>
           <Typography color="text.secondary" fontSize="14px">
-            Your persistent professional identity — applies to every WSO2 job automatically.
+            Your persistent professional identity applies to every WSO2 job automatically.
           </Typography>
         </Box>
         <Chip
           icon={<Shield size={13} />}
-          label={`${profile.personId}`}
+          label={`#${profile.personId}`}
           size="small"
-          sx={{ backgroundColor: "#FF730015", color: "#FF7300", fontWeight: 600 }}
+          sx={{ backgroundColor: "#ff670015", color: "#ff6700", fontWeight: 600 }}
         />
       </Stack>
+
+      {/* Apply-for-job card — shown whenever we arrived via a job's Apply button */}
+      {applyForJobId && applyForJob && (
+        <Card
+          elevation={0}
+          sx={{ border: "2px solid", borderColor: "primary.main", borderRadius: "12px", mb: 3 }}
+        >
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="h6" fontWeight={700} mb={0.5}>
+              Apply for {applyForJob.title}
+            </Typography>
+            <Typography color="text.secondary" fontSize="13px" mb={2.5}>
+              {applyForJob.team} · {applyForJob.country.join(", ")}
+            </Typography>
+
+            <Grid container spacing={2} mb={2.5}>
+              {[
+                { label: "Name", value: `${profile.firstName} ${profile.lastName}`.trim() || "Not set" },
+                { label: "Email", value: profile.email || "Not set" },
+                { label: "Phone", value: profile.phone || "Not set" },
+                { label: "Address", value: profile.address || "Not set" },
+              ].map((f) => (
+                <Grid key={f.label} size={{ xs: 12, sm: 6 }}>
+                  <Typography fontSize="11px" color="text.secondary" fontWeight={600} textTransform="uppercase">
+                    {f.label}
+                  </Typography>
+                  <Typography fontSize="14px">{f.value}</Typography>
+                </Grid>
+              ))}
+            </Grid>
+            <Typography fontSize="12px" color="text.secondary" mb={2.5}>
+              Need to change any of these? Edit them in Basic Information / Professional Details below, then come
+              back here.
+            </Typography>
+
+            <Stack gap={2.5}>
+              <Box>
+                <Typography fontSize="13px" fontWeight={600} mb={0.75}>
+                  Resume
+                </Typography>
+                <Select
+                  size="small"
+                  fullWidth
+                  value={selectedResumeId}
+                  onChange={(e) => setSelectedResumeId(e.target.value)}
+                  displayEmpty
+                >
+                  {profile.resumes.length === 0 && (
+                    <MenuItem value="" disabled>
+                      No resumes uploaded — add one in the Resume section below
+                    </MenuItem>
+                  )}
+                  {profile.resumes.map((r) => (
+                    <MenuItem key={r.id} value={r.id}>
+                      {r.name} {r.isActive && "(Active)"}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </Box>
+
+              <Box>
+                <Typography fontSize="13px" fontWeight={600} mb={0.5}>
+                  Do you have authorization to work in this job's location? *
+                </Typography>
+                <RadioGroup row value={authorized} onChange={(e) => setAuthorized(e.target.value as "yes" | "no")}>
+                  <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
+                  <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
+                </RadioGroup>
+              </Box>
+
+              <Stack gap={1}>
+                <FormControlLabel
+                  control={<Checkbox size="small" checked={consentData} onChange={(e) => setConsentData(e.target.checked)} />}
+                  label={
+                    <Typography fontSize="13px">
+                      Yes, I give WSO2 permission to use my personal data for recruitment purposes only.
+                    </Typography>
+                  }
+                />
+                <FormControlLabel
+                  control={<Checkbox size="small" checked={consentChecks} onChange={(e) => setConsentChecks(e.target.checked)} />}
+                  label={
+                    <Typography fontSize="13px">
+                      I give WSO2 permission to assess my suitability for employment and to conduct independent
+                      reference checks and verify the information I provided, beyond what is on my résumé. *
+                    </Typography>
+                  }
+                />
+              </Stack>
+
+              <Button
+                variant="contained"
+                size="large"
+                disabled={!applyFormValid || submitting}
+                onClick={handleSubmitApplication}
+                sx={{ borderRadius: "999px", fontWeight: 700, alignSelf: "flex-start", px: 4 }}
+              >
+                {submitting ? "Submitting..." : `Submit Application for ${applyForJob.title}`}
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
 
       <Grid container spacing={3}>
         {/* Left — Profile Summary Card */}
@@ -151,7 +388,7 @@ const Profile = () => {
                     justifyContent: "center",
                   }}
                 >
-                  <Avatar sx={{ width: 76, height: 76, fontSize: "24px", fontWeight: 800, backgroundColor: "#FF7300" }}>
+                  <Avatar sx={{ width: 76, height: 76, fontSize: "24px", fontWeight: 800, backgroundColor: "#ff6700" }}>
                     {profile.firstName.charAt(0)}
                   </Avatar>
                 </Box>
@@ -247,6 +484,15 @@ const Profile = () => {
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
+                      label="Address"
+                      value={basicForm.address}
+                      onChange={(e) => setBasicForm({ ...basicForm, address: e.target.value })}
+                      fullWidth
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
                       label="LinkedIn URL"
                       value={basicForm.linkedIn}
                       onChange={(e) => setBasicForm({ ...basicForm, linkedIn: e.target.value })}
@@ -275,6 +521,7 @@ const Profile = () => {
                 { icon: <Mail size={14} />, label: "Email", value: profile.email },
                 { icon: <Phone size={14} />, label: "Phone", value: profile.phone },
                 { icon: <MapPin size={14} />, label: "Country", value: profile.country },
+                { icon: <MapPin size={14} />, label: "Address", value: profile.address || "Not added" },
                 {
                   icon: <Linkedin size={14} />,
                   label: "LinkedIn",
@@ -357,6 +604,15 @@ const Profile = () => {
                       size="small"
                     />
                   </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      label="University (for internship applications)"
+                      value={profForm.university}
+                      onChange={(e) => setProfForm({ ...profForm, university: e.target.value })}
+                      fullWidth
+                      size="small"
+                    />
+                  </Grid>
                   <Grid size={{ xs: 12 }}>
                     <TextField
                       label="Professional Summary"
@@ -389,6 +645,12 @@ const Profile = () => {
                   </Typography>
                   <Typography fontSize="14px">{profile.yearsOfExperience} years</Typography>
                 </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography fontSize="11px" color="text.secondary" fontWeight={600} textTransform="uppercase" mb={0.5}>
+                    University
+                  </Typography>
+                  <Typography fontSize="14px">{profile.university || "Not added"}</Typography>
+                </Grid>
               </Grid>
               {profile.summary && (
                 <Box>
@@ -415,7 +677,9 @@ const Profile = () => {
                       key={skill}
                       label={skill}
                       size="small"
-                      onDelete={() => dispatch(removeSkill(skill))}
+                      onDelete={() =>
+                        getAccessToken().then((token) => dispatch(removeSkill({ accessToken: token, skill })))
+                      }
                       deleteIcon={<Trash2 size={12} />}
                       sx={{ fontWeight: 500 }}
                     />
@@ -430,12 +694,7 @@ const Profile = () => {
                     onKeyDown={(e) => e.key === "Enter" && handleAddSkill()}
                     sx={{ maxWidth: 260 }}
                   />
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<Plus size={14} />}
-                    onClick={handleAddSkill}
-                  >
+                  <Button variant="outlined" size="small" startIcon={<Plus size={14} />} onClick={handleAddSkill}>
                     Add
                   </Button>
                 </Stack>
@@ -464,15 +723,17 @@ const Profile = () => {
                     p: 2,
                     borderRadius: "8px",
                     border: "1px solid",
-                    borderColor: resume.isActive ? "#FF7300" : "divider",
-                    backgroundColor: resume.isActive ? "#FF730008" : "transparent",
+                    borderColor: resume.isActive ? "#ff6700" : "divider",
+                    backgroundColor: resume.isActive ? "#ff670008" : "transparent",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 1,
                   }}
                 >
                   <Stack direction="row" alignItems="center" gap={1.5}>
-                    <FileText size={18} color={resume.isActive ? "#FF7300" : "#9CA3AF"} />
+                    <FileText size={18} color={resume.isActive ? "#ff6700" : "#9CA3AF"} />
                     <Box>
                       <Typography fontSize="13px" fontWeight={600}>
                         {resume.name}
@@ -482,26 +743,50 @@ const Profile = () => {
                       </Typography>
                     </Box>
                   </Stack>
-                  <Stack direction="row" alignItems="center" gap={1}>
-                    {resume.isActive && (
+                  <Stack direction="row" alignItems="center" gap={0.5}>
+                    {resume.isActive ? (
                       <Chip
                         label="Active"
                         size="small"
-                        sx={{ fontSize: "10px", height: 20, backgroundColor: "#ECFDF5", color: "#10B981", fontWeight: 600 }}
+                        sx={{ fontSize: "10px", height: 20, backgroundColor: "#ECFDF5", color: "#10B981", fontWeight: 600, mr: 0.5 }}
                       />
+                    ) : (
+                      <Tooltip title="Set as active">
+                        <IconButton size="small" onClick={() => handleActivateResume(resume.id)}>
+                          <Check size={14} />
+                        </IconButton>
+                      </Tooltip>
                     )}
                     <Tooltip title="Download">
-                      <IconButton size="small">
-                        <FileText size={14} />
+                      <IconButton size="small" onClick={() => handleDownloadResume(resume.id, resume.name)}>
+                        <Download size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton size="small" onClick={() => handleDeleteResume(resume.id)}>
+                        <Trash2 size={14} />
                       </IconButton>
                     </Tooltip>
                   </Stack>
                 </Box>
               ))}
+              {resumeError && (
+                <Typography fontSize="13px" color="error.main">
+                  {resumeError}
+                </Typography>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf"
+                hidden
+                onChange={handleResumeFileChange}
+              />
               <Button
                 variant="outlined"
                 size="small"
                 startIcon={<Plus size={14} />}
+                onClick={() => fileInputRef.current?.click()}
                 sx={{ alignSelf: "flex-start", borderRadius: "8px" }}
               >
                 Upload New Resume
@@ -555,14 +840,6 @@ const Profile = () => {
                   No portfolio items added.
                 </Typography>
               )}
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<Plus size={14} />}
-                sx={{ alignSelf: "flex-start", borderRadius: "8px" }}
-              >
-                Add Portfolio Item
-              </Button>
             </Stack>
           </ProfileSection>
         </Grid>
