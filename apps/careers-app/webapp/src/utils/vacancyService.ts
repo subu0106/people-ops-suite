@@ -37,8 +37,10 @@ export interface OrgStructure {
 export interface VacancyDetail {
   id: string;
   title: string;
+  designation: string;
   team: string;
   country: string[];
+  officeLocations: string[];
   jobType: string;
   publishStatus: string;
   postedDate: string;
@@ -72,8 +74,10 @@ export async function fetchVacancyDetail(id: string, accessToken: string): Promi
   const response = await axios.get<{
     id: number;
     title: string;
+    designation: string;
     team: string;
     country: string[];
+    office_locations: Record<string, string>;
     job_type: string;
     publish_status: string;
     published_on: string;
@@ -89,8 +93,10 @@ export async function fetchVacancyDetail(id: string, accessToken: string): Promi
   return {
     id: String(v.id),
     title: v.title,
+    designation: v.designation,
     team: v.team,
     country: v.country,
+    officeLocations: Object.values(v.office_locations ?? {}),
     jobType: v.job_type,
     publishStatus: v.publish_status,
     postedDate: v.published_on,

@@ -18,27 +18,71 @@ import { PayloadAction, createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 import { Application, CandidateProfile, Job } from "@/types/types";
 import { State } from "@/types/types";
-import { mockApplications, mockCandidateProfile, mockSavedJobIds } from "@utils/mockData";
-import { OrgStructure, fetchOrgStructure, fetchVacancies } from "@utils/vacancyService";
+import {
+  activateResume as activateResumeApi,
+  deleteResume as deleteResumeApi,
+  fetchApplications as fetchApplicationsApi,
+  fetchProfile as fetchProfileApi,
+  saveProfile as saveProfileApi,
+  submitApplication as submitApplicationApi,
+  uploadResume as uploadResumeApi,
+} from "@utils/profileService";
+import {
+  OrgStructure,
+  VacancyDetail,
+  fetchOrgStructure,
+  fetchVacancies,
+  fetchVacancyDetail,
+} from "@utils/vacancyService";
 
 interface CareersState {
   profile: CandidateProfile;
+  profileState: State;
   jobs: Job[];
   jobsState: State;
+  jobDetails: Record<string, VacancyDetail>;
   orgStructure: OrgStructure;
   orgStructureState: State;
   applications: Application[];
+  applicationsState: State;
   savedJobIds: string[];
 }
 
+const emptyProfile: CandidateProfile = {
+  personId: "",
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  country: "",
+  address: "",
+  university: "",
+  linkedIn: "",
+  github: "",
+  currentRole: "",
+  yearsOfExperience: 0,
+  skills: [],
+  preferredRoles: [],
+  preferredLocations: [],
+  summary: "",
+  resumes: [],
+  portfolio: [],
+  completionPercentage: 0,
+};
+
 const initialState: CareersState = {
-  profile: mockCandidateProfile,
+  profile: emptyProfile,
+  profileState: State.idle,
   jobs: [],
   jobsState: State.idle,
+  jobDetails: {},
   orgStructure: { locations: [], teams: [] },
   orgStructureState: State.idle,
-  applications: mockApplications,
-  savedJobIds: mockSavedJobIds,
+  applications: [],
+  applicationsState: State.idle,
+  // Save state is local/in-memory only -- not yet persisted to the backend,
+  // so it resets on refresh.
+  savedJobIds: [],
 };
 
 export const loadJobs = createAsyncThunk("careers/loadJobs", async (accessToken: string) => {
@@ -49,19 +93,81 @@ export const loadOrgStructure = createAsyncThunk("careers/loadOrgStructure", asy
   return await fetchOrgStructure(accessToken);
 });
 
+export const loadJobDetail = createAsyncThunk(
+  "careers/loadJobDetail",
+  async ({ accessToken, jobId }: { accessToken: string; jobId: string }) => {
+    return await fetchVacancyDetail(jobId, accessToken);
+  },
+);
+
+export const loadProfile = createAsyncThunk("careers/loadProfile", async (accessToken: string) => {
+  return await fetchProfileApi(accessToken);
+});
+
+export const updateProfile = createAsyncThunk(
+  "careers/updateProfile",
+  async ({ accessToken, partial }: { accessToken: string; partial: Partial<CandidateProfile> }) => {
+    return await saveProfileApi(accessToken, partial);
+  },
+);
+
+export const addSkill = createAsyncThunk(
+  "careers/addSkill",
+  async ({ accessToken, skill }: { accessToken: string; skill: string }, { getState }) => {
+    const { careers } = getState() as { careers: CareersState };
+    if (careers.profile.skills.includes(skill)) {
+      return careers.profile;
+    }
+    return await saveProfileApi(accessToken, { skills: [...careers.profile.skills, skill] });
+  },
+);
+
+export const removeSkill = createAsyncThunk(
+  "careers/removeSkill",
+  async ({ accessToken, skill }: { accessToken: string; skill: string }, { getState }) => {
+    const { careers } = getState() as { careers: CareersState };
+    return await saveProfileApi(accessToken, {
+      skills: careers.profile.skills.filter((s) => s !== skill),
+    });
+  },
+);
+
+export const uploadResume = createAsyncThunk(
+  "careers/uploadResume",
+  async ({ accessToken, file }: { accessToken: string; file: File }) => {
+    return await uploadResumeApi(accessToken, file);
+  },
+);
+
+export const activateResume = createAsyncThunk(
+  "careers/activateResume",
+  async ({ accessToken, resumeId }: { accessToken: string; resumeId: string }) => {
+    return await activateResumeApi(accessToken, resumeId);
+  },
+);
+
+export const deleteResume = createAsyncThunk(
+  "careers/deleteResume",
+  async ({ accessToken, resumeId }: { accessToken: string; resumeId: string }) => {
+    return await deleteResumeApi(accessToken, resumeId);
+  },
+);
+
+export const loadApplications = createAsyncThunk("careers/loadApplications", async (accessToken: string) => {
+  return await fetchApplicationsApi(accessToken);
+});
+
+export const submitApplication = createAsyncThunk(
+  "careers/submitApplication",
+  async ({ accessToken, jobId, resumeId }: { accessToken: string; jobId: string; resumeId: string }) => {
+    return await submitApplicationApi(accessToken, jobId, resumeId);
+  },
+);
+
 export const CareersSlice = createSlice({
   name: "careers",
   initialState,
   reducers: {
-    updateProfile: (state, action: PayloadAction<Partial<CandidateProfile>>) => {
-      state.profile = { ...state.profile, ...action.payload };
-    },
-    addApplication: (state, action: PayloadAction<Application>) => {
-      const existing = state.applications.find((a) => a.jobId === action.payload.jobId);
-      if (!existing) {
-        state.applications.unshift(action.payload);
-      }
-    },
     toggleSaveJob: (state, action: PayloadAction<string>) => {
       const idx = state.savedJobIds.indexOf(action.payload);
       if (idx >= 0) {
@@ -69,15 +175,6 @@ export const CareersSlice = createSlice({
       } else {
         state.savedJobIds.push(action.payload);
       }
-    },
-    addSkill: (state, action: PayloadAction<string>) => {
-      if (!state.profile.skills.includes(action.payload)) {
-        state.profile.skills.push(action.payload);
-        state.profile.completionPercentage = Math.min(100, state.profile.completionPercentage + 5);
-      }
-    },
-    removeSkill: (state, action: PayloadAction<string>) => {
-      state.profile.skills = state.profile.skills.filter((s) => s !== action.payload);
     },
   },
   extraReducers: (builder) => {
@@ -102,10 +199,58 @@ export const CareersSlice = createSlice({
       .addCase(loadOrgStructure.rejected, (state) => {
         state.orgStructureState = State.failed;
         state.orgStructure = { locations: [], teams: [] };
+      })
+      .addCase(loadJobDetail.fulfilled, (state, action) => {
+        state.jobDetails[action.payload.id] = action.payload;
+      })
+      .addCase(loadProfile.pending, (state) => {
+        state.profileState = State.loading;
+      })
+      .addCase(loadProfile.fulfilled, (state, action) => {
+        state.profile = action.payload;
+        state.profileState = State.success;
+      })
+      .addCase(loadProfile.rejected, (state) => {
+        state.profileState = State.failed;
+      })
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.profile = action.payload;
+      })
+      .addCase(addSkill.fulfilled, (state, action) => {
+        state.profile = action.payload;
+      })
+      .addCase(removeSkill.fulfilled, (state, action) => {
+        state.profile = action.payload;
+      })
+      .addCase(uploadResume.fulfilled, (state, action) => {
+        state.profile = action.payload;
+      })
+      .addCase(activateResume.fulfilled, (state, action) => {
+        state.profile = action.payload;
+      })
+      .addCase(deleteResume.fulfilled, (state, action) => {
+        state.profile = action.payload;
+      })
+      .addCase(loadApplications.pending, (state) => {
+        state.applicationsState = State.loading;
+      })
+      .addCase(loadApplications.fulfilled, (state, action) => {
+        state.applications = action.payload;
+        state.applicationsState = State.success;
+      })
+      .addCase(loadApplications.rejected, (state) => {
+        state.applicationsState = State.failed;
+      })
+      .addCase(submitApplication.fulfilled, (state, action) => {
+        const idx = state.applications.findIndex((a) => a.id === action.payload.id);
+        if (idx >= 0) {
+          state.applications[idx] = action.payload;
+        } else {
+          state.applications.unshift(action.payload);
+        }
       });
   },
 });
 
-export const { updateProfile, addApplication, toggleSaveJob, addSkill, removeSkill } =
-  CareersSlice.actions;
+export const { toggleSaveJob } = CareersSlice.actions;
 export default CareersSlice.reducer;

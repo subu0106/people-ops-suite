@@ -14,9 +14,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Button, Card, CardContent, Chip, Stack, Tooltip, Typography } from "@mui/material";
-import { Bookmark, BookmarkCheck, Briefcase, MapPin, Send } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+// Styled after wso2.com/careers' own vacancy card (the `.pd-card`/`.pd-tier`/
+// `.pd-tag` design): a team pill, a divider-underlined title, job-type +
+// location tags, and a "See details" arrow-link footer. Save/quick-apply are
+// our own additions on top, kept as small corner icons so they don't disturb
+// the real layout.
+
+import { Box, Stack, Tooltip, Typography } from "@mui/material";
+import { ArrowRight, Bookmark, BookmarkCheck, Send } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { Job } from "@/types/types";
 import { toggleSaveJob } from "@slices/careersSlice/careers";
@@ -27,64 +33,66 @@ interface JobCardProps {
   onApply?: (job: Job) => void;
 }
 
-const teamColors: Record<string, string> = {
-  ENGINEERING: "#3B82F6",
-  "CUSTOMER SUCCESS": "#8B5CF6",
-  MARKETING: "#10B981",
-  SALES: "#EF4444",
-  "SALES ENGINEERING": "#F59E0B",
-  "People Operations": "#EC4899",
-  FINANCE: "#06B6D4",
-  "CHANNEL SALES": "#6366F1",
-  "DIGITAL TRANSFORMATION": "#14B8A6",
-  "BUSINESS OPERATIONS": "#F97316",
-};
-
 const JobCard = ({ job, onApply }: JobCardProps) => {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const savedJobIds = useAppSelector((state: RootState) => state.careers.savedJobIds);
   const isSaved = savedJobIds.includes(job.id);
-  const color = teamColors[job.team] ?? "#6B7280";
 
   const handleSave = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     dispatch(toggleSaveJob(job.id));
   };
 
+  const handleApply = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onApply?.(job);
+  };
+
   return (
-    <Card
-      elevation={0}
-      sx={{
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: "12px",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        transition: "all 0.2s ease",
-        "&:hover": {
-          borderColor: "#FF7300",
-          boxShadow: "0 4px 20px rgba(255, 115, 0, 0.08)",
-          transform: "translateY(-1px)",
-        },
-      }}
-    >
-      <CardContent sx={{ p: 2.5, flex: 1, display: "flex", flexDirection: "column" }}>
-        {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-          <Chip
-            label={job.team}
-            size="small"
-            sx={{
-              backgroundColor: `${color}15`,
-              color: color,
-              fontWeight: 600,
-              fontSize: "11px",
-              borderRadius: "6px",
-            }}
-          />
-          <Tooltip title={isSaved ? "Unsave" : "Save job"}>
+    <Box component={Link} to={`/jobs/${job.id}`} sx={{ textDecoration: "none", display: "block", height: "100%" }}>
+      <Box
+        sx={{
+          position: "relative",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          padding: "30px 28px 28px",
+          border: "1px solid #e2e5ec",
+          borderRadius: "14px",
+          boxShadow: "0 18px 40px -16px rgb(7 20 46 / 18%)",
+          backgroundColor: "#fff",
+          transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 18px 40px -16px rgb(7 20 46 / 18%)",
+            borderColor: "#d5d9e2",
+          },
+        }}
+      >
+        {/* Save / quick-apply corner icons */}
+        <Stack direction="row" gap={0.5} sx={{ position: "absolute", top: 14, right: 14 }}>
+          {onApply && (
+            <Tooltip title="Quick apply" arrow>
+              <Box
+                component="button"
+                onClick={handleApply}
+                sx={{
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  p: 0.5,
+                  borderRadius: "6px",
+                  color: "#6b7591",
+                  "&:hover": { color: "#ff6700", backgroundColor: "#f4f5f8" },
+                }}
+              >
+                <Send size={15} />
+              </Box>
+            </Tooltip>
+          )}
+          <Tooltip title={isSaved ? "Unsave" : "Save job"} arrow>
             <Box
               component="button"
               onClick={handleSave}
@@ -94,60 +102,95 @@ const JobCard = ({ job, onApply }: JobCardProps) => {
                 cursor: "pointer",
                 p: 0.5,
                 borderRadius: "6px",
-                color: isSaved ? "#FF7300" : "text.secondary",
-                "&:hover": { backgroundColor: "action.hover" },
+                color: isSaved ? "#ff6700" : "#6b7591",
+                "&:hover": { backgroundColor: "#f4f5f8" },
               }}
             >
-              {isSaved ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}
+              {isSaved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
             </Box>
           </Tooltip>
         </Stack>
 
+        {/* Team pill */}
+        <Box
+          sx={{
+            alignSelf: "flex-start",
+            marginBottom: "16px",
+            padding: "6px 10px",
+            borderRadius: "999px",
+            backgroundColor: "#ffe0cc",
+            color: "#e55a00",
+            fontSize: "11px",
+            fontWeight: 700,
+            lineHeight: 1.5,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+          }}
+        >
+          {job.team}
+        </Box>
+
         {/* Title */}
-        <Typography fontWeight={700} mb={1.5} sx={{ lineHeight: 1.3, fontSize: "15px" }}>
+        <Typography
+          sx={{
+            margin: "0 0 16px",
+            paddingBottom: "16px",
+            borderBottom: "1px solid #e2e5ec",
+            fontSize: "1.2rem",
+            lineHeight: "1.8rem",
+            fontWeight: 700,
+            color: "#17223a",
+          }}
+        >
           {job.title}
         </Typography>
 
-        {/* Meta */}
-        <Stack gap={0.75} mb={2} sx={{ flex: 1 }}>
-          <Stack direction="row" alignItems="center" gap={0.75}>
-            <MapPin size={13} color="#9CA3AF" />
-            <Typography fontSize="13px" color="text.secondary">
-              {job.country.join(", ")}
-            </Typography>
-          </Stack>
-          <Stack direction="row" alignItems="center" gap={0.75}>
-            <Briefcase size={13} color="#9CA3AF" />
-            <Typography fontSize="13px" color="text.secondary">
-              {job.jobType}
-            </Typography>
-          </Stack>
+        {/* Tags */}
+        <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ marginBottom: "18px" }}>
+          <Box
+            sx={{
+              padding: "4px 9px",
+              backgroundColor: "#f4f5f8",
+              border: "1px solid #e2e5ec",
+              borderRadius: "999px",
+              fontSize: "11.5px",
+              fontWeight: 500,
+              color: "#17223a",
+            }}
+          >
+            {job.jobType}
+          </Box>
+          {job.country.map((c) => (
+            <Box
+              key={c}
+              sx={{
+                padding: "4px 9px",
+                backgroundColor: "#dceffd",
+                border: "1px solid transparent",
+                borderRadius: "999px",
+                fontSize: "11.5px",
+                fontWeight: 500,
+                color: "#17223a",
+              }}
+            >
+              {c}
+            </Box>
+          ))}
         </Stack>
 
-        {/* Actions */}
-        <Stack direction="row" gap={1} mt="auto">
-          <Button
-            variant="outlined"
-            size="small"
-            fullWidth
-            onClick={() => navigate(`/jobs/${job.id}`)}
-            sx={{ borderRadius: "8px", fontSize: "12px", fontWeight: 600 }}
-          >
-            View Details
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            fullWidth
-            startIcon={<Send size={13} />}
-            onClick={() => onApply?.(job)}
-            sx={{ borderRadius: "8px", fontSize: "12px", fontWeight: 600 }}
-          >
-            Apply
-          </Button>
+        {/* Footer CTA */}
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="flex-end"
+          gap={0.5}
+          sx={{ marginTop: "auto", paddingTop: "30px" }}
+        >
+          <Typography sx={{ fontSize: "0.9rem", fontWeight: 600, color: "#17223a" }}>See details</Typography>
+          <ArrowRight size={14} color="#ff6700" />
         </Stack>
-      </CardContent>
-    </Card>
+      </Box>
+    </Box>
   );
 };
 
