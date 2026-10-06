@@ -16,25 +16,26 @@
 
 // Styled after wso2.com/careers' own vacancy card (the `.pd-card`/`.pd-tier`/
 // `.pd-tag` design): a team pill, a divider-underlined title, job-type +
-// location tags, and a "See details" arrow-link footer. Save/quick-apply are
-// our own additions on top, kept as small corner icons so they don't disturb
-// the real layout.
+// location tags, and an "Apply Now" arrow-link footer that opens the job's page.
+// Save is our own addition on top, kept as a small corner icon so it doesn't
+// disturb the real layout.
 
 import { Box, Stack, Tooltip, Typography } from "@mui/material";
-import { ArrowRight, Bookmark, BookmarkCheck, Send } from "lucide-react";
+import { ArrowRight, Bookmark, BookmarkCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Job } from "@/types/types";
+import { useAppAuthContext } from "@context/AuthContext";
 import { toggleSaveJob } from "@slices/careersSlice/careers";
 import { RootState, useAppDispatch, useAppSelector } from "@slices/store";
 
 interface JobCardProps {
   job: Job;
-  onApply?: (job: Job) => void;
 }
 
-const JobCard = ({ job, onApply }: JobCardProps) => {
+const JobCard = ({ job }: JobCardProps) => {
   const dispatch = useAppDispatch();
+  const { isSignedIn } = useAppAuthContext();
   const savedJobIds = useAppSelector((state: RootState) => state.careers.savedJobIds);
   const isSaved = savedJobIds.includes(job.id);
 
@@ -42,12 +43,6 @@ const JobCard = ({ job, onApply }: JobCardProps) => {
     e.preventDefault();
     e.stopPropagation();
     dispatch(toggleSaveJob(job.id));
-  };
-
-  const handleApply = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onApply?.(job);
   };
 
   return (
@@ -59,39 +54,22 @@ const JobCard = ({ job, onApply }: JobCardProps) => {
           display: "flex",
           flexDirection: "column",
           padding: "30px 28px 28px",
-          border: "1px solid #e2e5ec",
+          border: "1px solid",
+          borderColor: "divider",
           borderRadius: "14px",
           boxShadow: "0 18px 40px -16px rgb(7 20 46 / 18%)",
-          backgroundColor: "#fff",
+          backgroundColor: "background.paper",
           transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
           "&:hover": {
             transform: "translateY(-2px)",
             boxShadow: "0 18px 40px -16px rgb(7 20 46 / 18%)",
-            borderColor: "#d5d9e2",
+            borderColor: "rgba(255,103,0,0.45)",
           },
         }}
       >
-        {/* Save / quick-apply corner icons */}
+        {/* Save corner icon -- saving jobs is a signed-in feature */}
+        {isSignedIn && (
         <Stack direction="row" gap={0.5} sx={{ position: "absolute", top: 14, right: 14 }}>
-          {onApply && (
-            <Tooltip title="Quick apply" arrow>
-              <Box
-                component="button"
-                onClick={handleApply}
-                sx={{
-                  border: "none",
-                  background: "none",
-                  cursor: "pointer",
-                  p: 0.5,
-                  borderRadius: "6px",
-                  color: "#6b7591",
-                  "&:hover": { color: "#ff6700", backgroundColor: "#f4f5f8" },
-                }}
-              >
-                <Send size={15} />
-              </Box>
-            </Tooltip>
-          )}
           <Tooltip title={isSaved ? "Unsave" : "Save job"} arrow>
             <Box
               component="button"
@@ -103,13 +81,14 @@ const JobCard = ({ job, onApply }: JobCardProps) => {
                 p: 0.5,
                 borderRadius: "6px",
                 color: isSaved ? "#ff6700" : "#6b7591",
-                "&:hover": { backgroundColor: "#f4f5f8" },
+                "&:hover": { backgroundColor: "action.hover" },
               }}
             >
               {isSaved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
             </Box>
           </Tooltip>
         </Stack>
+        )}
 
         {/* Team pill */}
         <Box
@@ -118,7 +97,7 @@ const JobCard = ({ job, onApply }: JobCardProps) => {
             marginBottom: "16px",
             padding: "6px 10px",
             borderRadius: "999px",
-            backgroundColor: "#ffe0cc",
+            backgroundColor: (theme) => (theme.palette.mode === "dark" ? "rgba(255,103,0,0.18)" : "#ffe0cc"),
             color: "#e55a00",
             fontSize: "11px",
             fontWeight: 700,
@@ -135,11 +114,12 @@ const JobCard = ({ job, onApply }: JobCardProps) => {
           sx={{
             margin: "0 0 16px",
             paddingBottom: "16px",
-            borderBottom: "1px solid #e2e5ec",
+            borderBottom: "1px solid",
+            borderBottomColor: "divider",
             fontSize: "1.2rem",
             lineHeight: "1.8rem",
             fontWeight: 700,
-            color: "#17223a",
+            color: "text.primary",
           }}
         >
           {job.title}
@@ -150,12 +130,13 @@ const JobCard = ({ job, onApply }: JobCardProps) => {
           <Box
             sx={{
               padding: "4px 9px",
-              backgroundColor: "#f4f5f8",
-              border: "1px solid #e2e5ec",
+              backgroundColor: "action.hover",
+              border: "1px solid",
+              borderColor: "divider",
               borderRadius: "999px",
               fontSize: "11.5px",
               fontWeight: 500,
-              color: "#17223a",
+              color: "text.primary",
             }}
           >
             {job.jobType}
@@ -165,12 +146,12 @@ const JobCard = ({ job, onApply }: JobCardProps) => {
               key={c}
               sx={{
                 padding: "4px 9px",
-                backgroundColor: "#dceffd",
+                backgroundColor: (theme) => (theme.palette.mode === "dark" ? "rgba(59,130,246,0.22)" : "#dceffd"),
                 border: "1px solid transparent",
                 borderRadius: "999px",
                 fontSize: "11.5px",
                 fontWeight: 500,
-                color: "#17223a",
+                color: "text.primary",
               }}
             >
               {c}
@@ -186,7 +167,7 @@ const JobCard = ({ job, onApply }: JobCardProps) => {
           gap={0.5}
           sx={{ marginTop: "auto", paddingTop: "30px" }}
         >
-          <Typography sx={{ fontSize: "0.9rem", fontWeight: 600, color: "#17223a" }}>See details</Typography>
+          <Typography sx={{ fontSize: "0.9rem", fontWeight: 600, color: "text.primary" }}>Apply Now</Typography>
           <ArrowRight size={14} color="#ff6700" />
         </Stack>
       </Box>

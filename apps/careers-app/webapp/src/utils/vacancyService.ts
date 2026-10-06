@@ -50,8 +50,9 @@ export interface VacancyDetail {
   additionalContent: string | null;
 }
 
+// Guests have no token, so they send no credentials at all.
 function authHeader(accessToken: string) {
-  return { Authorization: `Bearer ${accessToken}` };
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
 export async function fetchVacancies(accessToken: string): Promise<Job[]> {

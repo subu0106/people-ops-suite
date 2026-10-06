@@ -16,6 +16,7 @@
 
 import AppHandler from "@app/AppHandler";
 import { AuthProvider } from "@asgardeo/auth-react";
+import CssBaseline from "@mui/material/CssBaseline";
 import { StyledEngineProvider, ThemeProvider, createTheme } from "@mui/material/styles";
 import { SnackbarProvider } from "notistack";
 import { Provider } from "react-redux";
@@ -79,6 +80,7 @@ function App() {
       <StyledEngineProvider injectFirst>
         <SnackbarProvider maxSnack={3} preventDuplicate>
           <ThemeProvider theme={theme}>
+            <CssBaseline />
             <Provider store={store}>
               <AuthProvider config={AsgardeoConfig}>
                 <AppAuthProvider>

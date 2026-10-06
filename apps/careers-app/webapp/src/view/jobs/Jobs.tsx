@@ -16,18 +16,19 @@
 
 import {
   Box,
-  Button,
+  FormControlLabel,
   Grid,
   InputAdornment,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
-import { useAuthContext } from "@asgardeo/auth-react";
+import { useAppAuthContext } from "@context/AuthContext";
 
 import JobCard from "@component/careers/JobCard";
 import JobCardSkeleton from "@component/careers/JobCardSkeleton";
@@ -36,15 +37,15 @@ const SECTION_MAX_WIDTH = 1080;
 import { State } from "@/types/types";
 import { loadJobs, loadOrgStructure } from "@slices/careersSlice/careers";
 import { RootState, useAppDispatch, useAppSelector } from "@slices/store";
+import { matchesJobType, matchesLocation, matchesSearch, matchesTeam } from "@utils/jobFilterUtils";
 
 const Jobs = () => {
   const dispatch = useAppDispatch();
-  const { getAccessToken } = useAuthContext();
+  const { getToken: getAccessToken, isSignedIn } = useAppAuthContext();
   const jobs = useAppSelector((state: RootState) => state.careers.jobs);
   const jobsState = useAppSelector((state: RootState) => state.careers.jobsState);
   const savedJobIds = useAppSelector((state: RootState) => state.careers.savedJobIds);
 
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<"available" | "saved">("available");
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
@@ -91,32 +92,21 @@ const Jobs = () => {
     [jobs, tab, savedJobIds],
   );
 
-  const filtered = useMemo(() => {
-    return sourceJobs.filter((job) => {
-      const matchesSearch =
-        !search ||
-        job.title.toLowerCase().includes(search.toLowerCase()) ||
-        job.team.toLowerCase().includes(search.toLowerCase());
+  // Jobs that satisfy everything except the team/location dropdowns; the
+  // dropdowns derive their option counts from this list.
+  const baseJobs = useMemo(
+    () => sourceJobs.filter((job) => matchesSearch(job, search) && matchesJobType(job, urlJobType)),
+    [sourceJobs, search, urlJobType],
+  );
 
-      const matchesLocation =
-        filters.location.length === 0 ||
-        job.country.some((c) =>
-          filters.location.some(
-            (loc) => c.toLowerCase().includes(loc.toLowerCase()) || loc.toLowerCase().includes(c.toLowerCase()),
-          ),
-        );
-
-      const matchesTeam = filters.team.length === 0 || filters.team.includes(job.team);
-
-      const matchesJobType = !urlJobType || job.jobType === urlJobType;
-
-      return matchesSearch && matchesLocation && matchesTeam && matchesJobType;
-    });
-  }, [sourceJobs, search, filters, urlJobType]);
+  const filtered = useMemo(
+    () => baseJobs.filter((job) => matchesTeam(job, filters.team) && matchesLocation(job, filters.location)),
+    [baseJobs, filters],
+  );
 
   return (
     <Box>
-      <Box sx={{ maxWidth: SECTION_MAX_WIDTH, mx: "auto", px: { xs: 2, md: 3 }, py: { xs: 4, md: 5 } }}>
+      <Box sx={{ maxWidth: SECTION_MAX_WIDTH, mx: "auto", px: { xs: 2, md: 3 }, pt: { xs: 2.5, md: 3 }, pb: { xs: 4, md: 5 } }}>
       <Typography
         component="h2"
         sx={{
@@ -124,50 +114,38 @@ const Jobs = () => {
           fontSize: { xs: "34px", md: "48px" },
           fontWeight: 800,
           lineHeight: 1.15,
-          mb: 4,
+          // Signed-in users get the saved-jobs switch right below, so the title sits closer to it.
+          mb: isSignedIn ? 1.5 : 3,
         }}
       >
         <Box component="span" sx={{ color: "#ff6700" }}>
           Available
         </Box>{" "}
-        <Box component="span" sx={{ color: "#17223A" }}>
-          positions
+        <Box component="span" sx={{ color: "text.primary" }}>
+          Positions
         </Box>
       </Typography>
 
-      {/* Available / Saved tabs */}
-      <Stack direction="row" gap={1} mb={3}>
-        <Button
-          onClick={() => setTab("available")}
-          sx={{
-            borderRadius: "999px",
-            fontWeight: 700,
-            px: 2.5,
-            backgroundColor: tab === "available" ? "#ff6700" : "transparent",
-            color: tab === "available" ? "#fff" : "text.secondary",
-            border: "1px solid",
-            borderColor: tab === "available" ? "#ff6700" : "divider",
-            "&:hover": { backgroundColor: tab === "available" ? "#e05c00" : "action.hover" },
-          }}
-        >
-          Available Positions
-        </Button>
-        <Button
-          onClick={() => setTab("saved")}
-          sx={{
-            borderRadius: "999px",
-            fontWeight: 700,
-            px: 2.5,
-            backgroundColor: tab === "saved" ? "#ff6700" : "transparent",
-            color: tab === "saved" ? "#fff" : "text.secondary",
-            border: "1px solid",
-            borderColor: tab === "saved" ? "#ff6700" : "divider",
-            "&:hover": { backgroundColor: tab === "saved" ? "#e05c00" : "action.hover" },
-          }}
-        >
-          Saved Jobs ({savedJobIds.length})
-        </Button>
-      </Stack>
+      {/* Saved-jobs toggle -- saving jobs is a signed-in feature; off shows every job, on shows only the saved ones */}
+      {isSignedIn && (
+        <Stack direction="row" mb={2}>
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={tab === "saved"}
+                onChange={(e) => setTab(e.target.checked ? "saved" : "available")}
+                sx={{
+                  "& .MuiSwitch-switchBase.Mui-checked": { color: "#ff6700" },
+                  "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: "#ff6700" },
+                }}
+              />
+            }
+            label="Show saved jobs"
+            sx={{ "& .MuiFormControlLabel-label": { fontSize: "0.95rem", fontWeight: 600 } }}
+          />
+        </Stack>
+      )}
 
       {/* Search & Filters */}
       <Stack gap={2} mb={3}>
@@ -183,6 +161,29 @@ const Jobs = () => {
                 <Search size={16} color="#9CA3AF" />
               </InputAdornment>
             ),
+            // A clear button appears once there is text to remove.
+            endAdornment: search ? (
+              <InputAdornment position="end">
+                <Box
+                  component="button"
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => setSearch("")}
+                  sx={{
+                    display: "flex",
+                    border: "none",
+                    background: "none",
+                    cursor: "pointer",
+                    p: 0.5,
+                    borderRadius: "50%",
+                    color: "text.secondary",
+                    "&:hover": { backgroundColor: "action.hover", color: "#ff6700" },
+                  }}
+                >
+                  <X size={16} />
+                </Box>
+              </InputAdornment>
+            ) : null,
             sx: {
               borderRadius: "10px",
               "&:hover .MuiOutlinedInput-notchedOutline": {
@@ -191,7 +192,16 @@ const Jobs = () => {
             },
           }}
         />
-        <JobFilters filters={filters} onChange={setFilters} />
+        <JobFilters
+          jobs={baseJobs}
+          filters={filters}
+          onChange={setFilters}
+          searchActive={search.trim() !== ""}
+          onClearAll={() => {
+            setSearch("");
+            setFilters({ team: [], location: [] });
+          }}
+        />
       </Stack>
 
       {/* Loading */}
@@ -240,14 +250,14 @@ const Jobs = () => {
               <Typography color="text.secondary">
                 {tab === "saved" && sourceJobs.length === 0
                   ? "You haven't saved any jobs yet. Click the bookmark icon on a job card to save it here."
-                  : "No jobs match your search. Try adjusting the filters."}
+                  : "There are no available vacancies that match your search"}
               </Typography>
             </Box>
           ) : (
             <Grid container spacing={2}>
               {filtered.map((job) => (
                 <Grid key={job.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                  <JobCard job={job} onApply={(job) => navigate(`/profile?applyFor=${job.id}`)} />
+                  <JobCard job={job} />
                 </Grid>
               ))}
             </Grid>

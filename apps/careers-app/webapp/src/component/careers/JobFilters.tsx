@@ -22,7 +22,9 @@ import { Box, ClickAwayListener, Fade, Paper, Popper, Stack, Typography } from "
 import { Check, ChevronDown, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
+import { Job } from "@/types/types";
 import { RootState, useAppSelector } from "@slices/store";
+import { matchesLocation, matchesTeam } from "@utils/jobFilterUtils";
 
 export interface JobFilterValues {
   team: string[];
@@ -30,40 +32,47 @@ export interface JobFilterValues {
 }
 
 interface JobFiltersProps {
+  // Jobs already narrowed by search, tab and job type, but not by these dropdowns.
+  jobs: Job[];
   filters: JobFilterValues;
   onChange: (filters: JobFilterValues) => void;
+  // Whether the page's search box has text, so "Clear all" also shows for a search with no filters chosen.
+  searchActive: boolean;
+  // Resets the dropdown selections and the page's search text together.
+  onClearAll: () => void;
 }
 
 type DropdownKey = "team" | "location";
 
-const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
+const KEY_LABELS: Record<DropdownKey, string> = { team: "Team", location: "Location" };
+
+const JobFilters = ({ jobs, filters, onChange, searchActive, onClearAll }: JobFiltersProps) => {
   const { locations, teams } = useAppSelector((state: RootState) => state.careers.orgStructure);
-  const jobs = useAppSelector((state: RootState) => state.careers.jobs);
   const [openDropdown, setOpenDropdown] = useState<DropdownKey | null>(null);
   const teamAnchor = useRef<HTMLButtonElement>(null);
   const locationAnchor = useRef<HTMLButtonElement>(null);
 
-  // How many open positions each dropdown option would match, shown next to
-  // the option so candidates know a filter is worth picking before they do.
+  // How many open positions each option would match given the other
+  // dropdown's selection, so a badge always equals the results it produces.
+  // A dropdown's counts ignore its own selection, which keeps the remaining
+  // options of that dropdown available to add.
   const teamCounts = useMemo(() => {
+    const scoped = jobs.filter((job) => matchesLocation(job, filters.location));
     const counts: Record<string, number> = {};
     teams.forEach((team) => {
-      counts[team] = jobs.filter((job) => job.team === team).length;
+      counts[team] = scoped.filter((job) => job.team === team).length;
     });
     return counts;
-  }, [jobs, teams]);
+  }, [jobs, teams, filters.location]);
 
   const locationCounts = useMemo(() => {
+    const scoped = jobs.filter((job) => matchesTeam(job, filters.team));
     const counts: Record<string, number> = {};
     locations.forEach((loc) => {
-      counts[loc] = jobs.filter((job) =>
-        job.country.some(
-          (c) => c.toLowerCase().includes(loc.toLowerCase()) || loc.toLowerCase().includes(c.toLowerCase()),
-        ),
-      ).length;
+      counts[loc] = scoped.filter((job) => matchesLocation(job, [loc])).length;
     });
     return counts;
-  }, [jobs, locations]);
+  }, [jobs, locations, filters.team]);
 
   const counts: Record<DropdownKey, Record<string, number>> = { team: teamCounts, location: locationCounts };
 
@@ -82,16 +91,20 @@ const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
     onChange({ ...filters, [key]: filters[key].filter((v) => v !== value) });
   };
 
-  const clearAll = () => onChange({ team: [], location: [] });
+  const clearAll = onClearAll;
 
-  const hasActive = filters.team.length > 0 || filters.location.length > 0;
+  const activeChips: { key: DropdownKey; value: string }[] = [
+    ...filters.team.map((value) => ({ key: "team" as const, value })),
+    ...filters.location.map((value) => ({ key: "location" as const, value })),
+  ];
+  const hasActive = activeChips.length > 0 || searchActive;
 
   const renderDropdown = (key: DropdownKey, label: string, options: string[], columns: number) => {
     const selected = filters[key];
     const isOpen = openDropdown === key;
 
     return (
-      <Box sx={{ position: "relative", height: "48px" }}>
+      <Box sx={{ position: "relative", height: "40px" }}>
         <Box
           component="div"
           role="button"
@@ -112,55 +125,56 @@ const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
             width: "100%",
             height: "100%",
             minWidth: 150,
-            padding: "0 14px",
-            background: isOpen ? "#eceef3" : "transparent",
-            border: "none",
+            padding: "0 12px",
+            backgroundColor: "transparent",
+            border: "1.5px solid",
+            borderColor: isOpen ? "#ff6700" : "transparent",
+            outline: "none",
             borderRadius: "40px",
             textAlign: "left",
             cursor: "pointer",
-            transition: "background 0.15s",
-            "&:hover": { background: "#eceef3" },
+            transition: "border-color 0.15s",
+            "&:hover, &:focus-visible": { borderColor: "#ff6700" },
           }}
         >
-          <Stack direction="row" alignItems="center" gap={1} sx={{ overflow: "hidden" }}>
-            <Typography
-              component="span"
-              noWrap
-              sx={{
-                fontSize: selected.length ? "14px" : "1rem",
-                fontWeight: selected.length ? 600 : 400,
-                color: selected.length ? "#0e1a33" : "rgba(23,34,58,0.7)",
-              }}
-            >
-              {selected.length
-                ? `${label}: ${selected[0]}${selected.length > 1 ? ` +${selected.length - 1}` : ""}`
-                : label}
-            </Typography>
-          </Stack>
-          {selected.length > 0 ? (
-            <Box
-              component="button"
-              type="button"
-              aria-label={`Clear ${label} filter`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange({ ...filters, [key]: [] });
-              }}
-              sx={{
-                display: "flex",
-                flexShrink: 0,
-                border: "none",
-                background: "none",
-                cursor: "pointer",
-                color: "#6b7591",
-                borderRadius: "50%",
-                p: 0.25,
-                "&:hover": { background: "#dfe2e8", color: "#17223a" },
-              }}
-            >
-              <X size={14} />
-            </Box>
-          ) : (
+          <Typography
+            component="span"
+            noWrap
+            sx={{
+              fontSize: "1rem",
+              fontWeight: 400,
+              color: selected.length > 0 ? "text.primary" : "text.secondary",
+            }}
+          >
+            {/* The placeholder when nothing is chosen; otherwise the first choice, with "+N" for the others. */}
+            {selected.length === 0 ? label : `${selected[0]}${selected.length > 1 ? ` +${selected.length - 1}` : ""}`}
+          </Typography>
+          <Stack direction="row" alignItems="center" gap={0.5} sx={{ flexShrink: 0 }}>
+            {selected.length > 0 && (
+              <Box
+                component="button"
+                type="button"
+                aria-label={`Clear ${label} filter`}
+                // Clears just this dropdown's selection without opening or closing its list.
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange({ ...filters, [key]: [] });
+                }}
+                onKeyDown={(e) => e.stopPropagation()}
+                sx={{
+                  display: "flex",
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  p: 0.5,
+                  borderRadius: "50%",
+                  color: "text.secondary",
+                  "&:hover": { backgroundColor: "action.hover", color: "#ff6700" },
+                }}
+              >
+                <X size={14} />
+              </Box>
+            )}
             <ChevronDown
               size={16}
               color="#6b7591"
@@ -170,7 +184,7 @@ const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
                 transform: isOpen ? "rotate(180deg)" : "none",
               }}
             />
-          )}
+          </Stack>
         </Box>
 
         <Popper open={isOpen} anchorEl={anchors[key].current} placement="bottom-start" transition sx={{ zIndex: 60 }}>
@@ -183,7 +197,8 @@ const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
                   maxWidth: 440,
                   maxHeight: 320,
                   overflowY: "auto",
-                  border: "1px solid #e2e5ec",
+                  border: "1px solid",
+                  borderColor: "divider",
                   borderRadius: "12px",
                   boxShadow: "0 20px 50px -12px rgb(7 20 46 / 20%), 0 4px 8px rgb(7 20 46 / 4%)",
                   padding: "8px",
@@ -193,12 +208,17 @@ const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
               >
                 {options.map((opt) => {
                   const checked = selected.includes(opt);
+                  const count = counts[key][opt] ?? 0;
+                  // A selected option stays clickable at zero so it can always be deselected.
+                  const disabled = count === 0 && !checked;
                   return (
                     <Box
                       key={opt}
                       component="button"
+                      disabled={disabled}
                       onClick={() => toggleValue(key, opt)}
                       sx={{
+                        opacity: disabled ? 0.45 : 1,
                         display: "flex",
                         alignItems: "center",
                         gap: "10px",
@@ -208,11 +228,11 @@ const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
                         background: "none",
                         borderRadius: "6px",
                         fontSize: "14px",
-                        color: "#17223a",
+                        color: "text.primary",
                         textAlign: "left",
-                        cursor: "pointer",
+                        cursor: disabled ? "not-allowed" : "pointer",
                         breakInside: "avoid",
-                        "&:hover": { background: "#eceef3" },
+                        "&:hover": { backgroundColor: disabled ? "transparent" : "action.hover" },
                       }}
                     >
                       <Box
@@ -223,8 +243,9 @@ const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
                           width: 16,
                           height: 16,
                           flexShrink: 0,
-                          background: checked ? "#ff6700" : "#fff",
-                          border: checked ? "1.5px solid #ff6700" : "1.5px solid #d5d9e2",
+                          backgroundColor: checked ? "#ff6700" : "background.paper",
+                          border: "1.5px solid",
+                          borderColor: checked ? "#ff6700" : "text.disabled",
                           borderRadius: "4px",
                         }}
                       >
@@ -241,7 +262,7 @@ const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
                           height: 20,
                           px: "6px",
                           borderRadius: "999px",
-                          background: "#ff6700",
+                          background: disabled ? "#9ca3af" : "#ff6700",
                           color: "#fff",
                           fontSize: "11px",
                           fontWeight: 700,
@@ -250,7 +271,7 @@ const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
                           justifyContent: "center",
                         }}
                       >
-                        {counts[key][opt] ?? 0}
+                        {count}
                       </Box>
                     </Box>
                   );
@@ -273,8 +294,8 @@ const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
             gap: 1,
             alignItems: "center",
             maxWidth: 1200,
-            padding: "10px",
-            background: "#fff",
+            padding: "4px",
+            backgroundColor: "background.paper",
             borderRadius: "40px",
             boxShadow: "0 14px 40px -14px rgb(7 20 46 / 35%), 0 1px 0 rgb(7 20 46 / 6%)",
           }}
@@ -285,53 +306,36 @@ const JobFilters = ({ filters, onChange }: JobFiltersProps) => {
 
         {hasActive && (
           <Stack direction="row" flexWrap="wrap" alignItems="center" gap={1} sx={{ mt: 2 }}>
-            {filters.team.map((t) => (
+            <Typography
+              component="span"
+              sx={{ fontSize: "12px", fontWeight: 600, letterSpacing: "0.08em", color: "#6b7591", mr: 0.5 }}
+            >
+              ACTIVE
+            </Typography>
+            {activeChips.map(({ key, value }) => (
               <Stack
-                key={`team-${t}`}
+                key={`${key}-${value}`}
                 direction="row"
                 alignItems="center"
                 gap={0.75}
                 sx={{
-                  padding: "6px 8px 6px 12px",
-                  background: "#fff",
-                  border: "1px solid #e2e5ec",
+                  padding: "6px 10px 6px 14px",
+                  backgroundColor: "background.paper",
+                  border: "1px solid",
+                  borderColor: "divider",
                   borderRadius: "999px",
                   fontSize: "13px",
-                  fontWeight: 500,
-                  color: "#0e1a33",
+                  color: "text.primary",
                 }}
               >
-                <span>{t}</span>
+                <span>
+                  {KEY_LABELS[key]}: <strong>{value}</strong>
+                </span>
                 <Box
                   component="button"
-                  onClick={() => removeChip("team", t)}
-                  sx={{ display: "flex", border: "none", background: "none", cursor: "pointer", p: 0, color: "#6b7591" }}
-                >
-                  <X size={13} />
-                </Box>
-              </Stack>
-            ))}
-            {filters.location.map((l) => (
-              <Stack
-                key={`location-${l}`}
-                direction="row"
-                alignItems="center"
-                gap={0.75}
-                sx={{
-                  padding: "6px 8px 6px 12px",
-                  background: "#fff",
-                  border: "1px solid #e2e5ec",
-                  borderRadius: "999px",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  color: "#0e1a33",
-                }}
-              >
-                <span>{l}</span>
-                <Box
-                  component="button"
-                  onClick={() => removeChip("location", l)}
-                  sx={{ display: "flex", border: "none", background: "none", cursor: "pointer", p: 0, color: "#6b7591" }}
+                  aria-label={`Remove ${KEY_LABELS[key]} ${value}`}
+                  onClick={() => removeChip(key, value)}
+                  sx={{ display: "flex", border: "none", background: "none", cursor: "pointer", p: 0, color: "#ff6700" }}
                 >
                   <X size={13} />
                 </Box>

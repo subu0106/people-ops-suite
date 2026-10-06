@@ -47,9 +47,11 @@ const LoginScreen = () => {
     <Box
       sx={{
         minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
         background:
           theme.palette.mode === "dark"
-            ? "linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 50%, #16213e 100%)"
+            ? "linear-gradient(135deg, #0B1220 0%, #13204a 55%, #1a2c63 100%)"
             : "linear-gradient(135deg, #fff7f0 0%, #ffffff 50%, #f0f9ff 100%)",
         overflowY: "auto",
       }}
@@ -59,7 +61,7 @@ const LoginScreen = () => {
         sx={{
           borderBottom: `1px solid ${theme.palette.divider}`,
           backdropFilter: "blur(8px)",
-          backgroundColor: theme.palette.mode === "dark" ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.8)",
+          backgroundColor: theme.palette.mode === "dark" ? "rgba(15,30,69,0.85)" : "rgba(255,255,255,0.8)",
           position: "sticky",
           top: 0,
           zIndex: 100,
@@ -92,8 +94,8 @@ const LoginScreen = () => {
       </Box>
 
       {/* Hero Section */}
-      <Container maxWidth="lg" sx={{ pt: 8, pb: 6 }}>
-        <Grid container spacing={6} alignItems="center">
+      <Container maxWidth="lg" sx={{ pt: 8, pb: 6, flexGrow: 1, display: "flex", alignItems: "center" }}>
+        <Grid container spacing={6} alignItems="center" sx={{ width: "100%" }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <Chip
               label="Now hiring across 8 departments"

@@ -19,7 +19,7 @@ import { ArrowRight, Flame, Handshake, HeartHandshake, Mail, Users } from "lucid
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { useAuthContext } from "@asgardeo/auth-react";
+import { useAppAuthContext } from "@context/AuthContext";
 
 import glassdoorTeam from "@assets/images/employee-careers.jpeg";
 import internsTeam from "@assets/images/interns-careers.jpeg";
@@ -82,7 +82,7 @@ const Section = ({ children, alt }: { children: React.ReactNode; alt?: boolean }
 const Home = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { getAccessToken } = useAuthContext();
+  const { getToken: getAccessToken } = useAppAuthContext();
   const orgStructure = useAppSelector((state: RootState) => state.careers.orgStructure);
   const orgStructureState = useAppSelector((state: RootState) => state.careers.orgStructureState);
 
@@ -255,7 +255,7 @@ const Home = () => {
                 <Box component="span" sx={{ color: "#ff6700" }}>
                   What
                 </Box>{" "}
-                <Box component="span" sx={{ color: "#17223A" }}>
+                <Box component="span" sx={{ color: "text.primary" }}>
                   employees say in
                 </Box>
               </Typography>
@@ -298,7 +298,7 @@ const Home = () => {
       {/* Interview process */}
       <Section alt>
         <Stack gap={0.5} mb={4} maxWidth={680} mx="auto" textAlign="center">
-          <Typography sx={{ fontSize: "18px", fontWeight: 600, fontStyle: "italic", color: "#17223A" }}>
+          <Typography sx={{ fontSize: "18px", fontWeight: 600, fontStyle: "italic", color: "text.primary" }}>
             What to expect throughout the
           </Typography>
           <Typography
@@ -313,7 +313,7 @@ const Home = () => {
             <Box component="span" sx={{ color: "#ff6700" }}>
               Interview
             </Box>{" "}
-            <Box component="span" sx={{ color: "#17223A" }}>
+            <Box component="span" sx={{ color: "text.primary" }}>
               Process
             </Box>
           </Typography>
@@ -433,7 +433,7 @@ const Home = () => {
         >
           <Typography
             component="div"
-            sx={{ fontSize: { xs: "32px", md: "42px" }, fontWeight: 800, lineHeight: 1.2, color: "#17223A", mb: 4 }}
+            sx={{ fontSize: { xs: "32px", md: "42px" }, fontWeight: 800, lineHeight: 1.2, color: "text.primary", mb: 4 }}
           >
             Search for your
             <br />

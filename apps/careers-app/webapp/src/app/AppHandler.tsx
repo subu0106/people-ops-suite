@@ -16,15 +16,28 @@
 
 import { Navigate, RouterProvider, createBrowserRouter } from "react-router-dom";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 import AppShell from "@component/common/AppShell";
+import PreLoader from "@component/common/PreLoader";
+import { useAppAuthContext } from "@context/AuthContext";
 import Layout from "@layout/Layout";
 import NotFoundPage from "@layout/pages/404";
 import { RootState, useAppSelector } from "@slices/store";
 import { View } from "@view/index";
 
 import { getActiveRoutesV2, routes } from "../route";
+
+// Pages that need an account: a guest who opens one is sent to Asgardeo to sign in.
+const RequireSignIn = ({ children }: { children: React.ReactNode }) => {
+  const { isSignedIn, appSignIn } = useAppAuthContext();
+
+  useEffect(() => {
+    if (!isSignedIn) appSignIn();
+  }, [isSignedIn, appSignIn]);
+
+  return isSignedIn ? <>{children}</> : <PreLoader isLoading message="Taking you to sign in ..." />;
+};
 
 const AppHandler = () => {
   const auth = useAppSelector((state: RootState) => state.auth);
@@ -40,8 +53,30 @@ const AppHandler = () => {
             { path: "/careers/internships", element: <View.internships /> },
             { path: "/jobs", element: <View.jobs /> },
             { path: "/jobs/:id", element: <View.jobDetail /> },
-            { path: "/profile", element: <View.profile /> },
-            { path: "/applications", element: <View.applications /> },
+            {
+              path: "/profile",
+              element: (
+                <RequireSignIn>
+                  <View.profile />
+                </RequireSignIn>
+              ),
+            },
+            {
+              path: "/applications",
+              element: (
+                <RequireSignIn>
+                  <View.applications />
+                </RequireSignIn>
+              ),
+            },
+            {
+              path: "/applications/:id",
+              element: (
+                <RequireSignIn>
+                  <View.applications />
+                </RequireSignIn>
+              ),
+            },
           ],
         },
         {

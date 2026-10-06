@@ -14,12 +14,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Avatar, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, FormControlLabel,
- Grid, IconButton, MenuItem, Radio, RadioGroup, Select, Stack, TextField, Tooltip, Typography } from "@mui/material";
-import { Briefcase, Check, Download, FileText, Github, Globe,
-   Link as LinkIcon, Linkedin, Mail, MapPin, Phone, Plus, Shield, Star, Trash2 } from "lucide-react";
+import { Avatar, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog,
+ DialogActions, DialogContent, DialogTitle, Grid, IconButton, MenuItem, Select, Stack, TextField, Tooltip, Typography } from "@mui/material";
+import { ArrowRight, Briefcase, Check, Download, ExternalLink, FileText, Github, Globe,
+   Link as LinkIcon, Linkedin, Mail, MapPin, Pencil, Phone, Plus, Shield, Sparkles, Star, Trash2 } from "lucide-react";
+import type { Theme } from "@mui/material/styles";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAuthContext } from "@asgardeo/auth-react";
 
@@ -27,40 +27,63 @@ import ProfileSection from "@component/careers/ProfileSection";
 import { SnackMessage } from "@config/constant";
 import {
   activateResume,
+  addPortfolioItem,
   addSkill,
   deleteResume,
   loadProfile,
+  removePortfolioItem,
   removeSkill,
-  submitApplication,
   updateProfile,
   uploadResume,
 } from "@slices/careersSlice/careers";
 import { enqueueSnackbarMessage } from "@slices/commonSlice/common";
 import { RootState, useAppDispatch, useAppSelector } from "@slices/store";
-import { State } from "@/types/types";
+import { CandidateProfile, PortfolioItem, State } from "@/types/types";
 import { downloadResume } from "@utils/profileService";
-import { VacancyDetail, fetchVacancyDetail } from "@utils/vacancyService";
 
 const MAX_RESUME_BYTES = 5 * 1024 * 1024;
 
+const PORTFOLIO_TYPE_LABELS: Record<PortfolioItem["type"], string> = {
+  github: "GitHub repository",
+  project: "Project",
+  link: "Link",
+};
+
+const emptyPortfolioForm: Omit<PortfolioItem, "id"> = { title: "", url: "", description: "", type: "link" };
+
+const skillChipSx = {
+  fontWeight: 500,
+  color: (theme: Theme) => (theme.palette.mode === "dark" ? "#6EE7B7" : "#047857"),
+  backgroundColor: "rgba(16,185,129,0.12)",
+  border: "1px solid rgba(16,185,129,0.35)",
+  transition: "background-color 0.15s, transform 0.15s",
+  "&:hover": { backgroundColor: "rgba(16,185,129,0.22)", transform: "translateY(-1px)" },
+  "& .MuiChip-deleteIcon": { color: "#10B981" },
+};
+
 const Profile = () => {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { getAccessToken } = useAuthContext();
 
   const profile = useAppSelector((state: RootState) => state.careers.profile);
   const profileState = useAppSelector((state: RootState) => state.careers.profileState);
 
-  const applyForJobId = searchParams.get("applyFor");
-  const [applyForJob, setApplyForJob] = useState<VacancyDetail | null>(null);
-  const [selectedResumeId, setSelectedResumeId] = useState("");
-  const [authorized, setAuthorized] = useState<"yes" | "no" | "">("");
-  const [consentData, setConsentData] = useState(false);
-  const [consentChecks, setConsentChecks] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
   const [newSkill, setNewSkill] = useState("");
+  const [savedOpen, setSavedOpen] = useState(false);
+  // Bumped for a section after it saves, to close its edit form.
+  const [closeSignals, setCloseSignals] = useState<Record<string, number>>({});
+
+  // The "Saved" pop-up dismisses itself shortly after it appears.
+  useEffect(() => {
+    if (!savedOpen) return;
+    const timer = setTimeout(() => setSavedOpen(false), 2500);
+    return () => clearTimeout(timer);
+  }, [savedOpen]);
+  // The portfolio dialog is the add flow when `editingPortfolioId` is null.
+  const [portfolioDialogOpen, setPortfolioDialogOpen] = useState(false);
+  const [editingPortfolioId, setEditingPortfolioId] = useState<string | null>(null);
+  const [portfolioForm, setPortfolioForm] = useState(emptyPortfolioForm);
+  const [portfolioError, setPortfolioError] = useState<string | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,37 +129,23 @@ const Profile = () => {
     });
   }, [profile]);
 
-  useEffect(() => {
-    if (!selectedResumeId) {
-      const active = profile.resumes.find((r) => r.isActive) ?? profile.resumes[0];
-      if (active) setSelectedResumeId(active.id);
-    }
-  }, [profile.resumes, selectedResumeId]);
-
-  useEffect(() => {
-    if (!applyForJobId) {
-      setApplyForJob(null);
-      return;
-    }
+  // The "Saved" pop-up only appears once the backend has accepted the change.
+  // A saved section drops back to its read-only view.
+  const saveProfileChanges = (partial: Partial<CandidateProfile>, section: string) => {
     getAccessToken()
-      .then((token) => fetchVacancyDetail(applyForJobId, token))
-      .then(setApplyForJob)
-      .catch(() => setApplyForJob(null));
-  }, [applyForJobId, getAccessToken]);
-
-  const handleSaveBasic = () => {
-    getAccessToken().then((token) => {
-      dispatch(updateProfile({ accessToken: token, partial: basicForm }));
-      dispatch(enqueueSnackbarMessage({ message: SnackMessage.success.profileUpdated, type: "success" }));
-    });
+      .then((token) => dispatch(updateProfile({ accessToken: token, partial })).unwrap())
+      .then(() => {
+        setSavedOpen(true);
+        setCloseSignals((prev) => ({ ...prev, [section]: (prev[section] ?? 0) + 1 }));
+      })
+      .catch(() =>
+        dispatch(enqueueSnackbarMessage({ message: SnackMessage.error.saveProfile, type: "error" })),
+      );
   };
 
-  const handleSaveProf = () => {
-    getAccessToken().then((token) => {
-      dispatch(updateProfile({ accessToken: token, partial: profForm }));
-      dispatch(enqueueSnackbarMessage({ message: SnackMessage.success.profileUpdated, type: "success" }));
-    });
-  };
+  const handleSaveBasic = () => saveProfileChanges(basicForm, "basic");
+
+  const handleSaveProf = () => saveProfileChanges(profForm, "professional");
 
   const handleAddSkill = () => {
     const trimmed = newSkill.trim();
@@ -145,6 +154,43 @@ const Profile = () => {
       dispatch(addSkill({ accessToken: token, skill: trimmed }));
       setNewSkill("");
     });
+  };
+
+  const handleOpenAddPortfolio = () => {
+    setEditingPortfolioId(null);
+    setPortfolioForm(emptyPortfolioForm);
+    setPortfolioError(null);
+    setPortfolioDialogOpen(true);
+  };
+
+  const handleOpenEditPortfolio = (item: PortfolioItem) => {
+    setEditingPortfolioId(item.id);
+    setPortfolioForm({ title: item.title, url: item.url, description: item.description, type: item.type });
+    setPortfolioError(null);
+    setPortfolioDialogOpen(true);
+  };
+
+  const handleSubmitPortfolio = () => {
+    const title = portfolioForm.title.trim();
+    const url = portfolioForm.url.trim();
+    if (!title || !/^https?:\/\/\S+$/i.test(url)) {
+      setPortfolioError("A title and a valid http(s) URL are required.");
+      return;
+    }
+    const values = { ...portfolioForm, title, url, description: portfolioForm.description.trim() };
+    getAccessToken().then((token) => {
+      if (editingPortfolioId) {
+        const portfolio = profile.portfolio.map((p) => (p.id === editingPortfolioId ? { ...p, ...values } : p));
+        dispatch(updateProfile({ accessToken: token, partial: { portfolio } }));
+      } else {
+        dispatch(addPortfolioItem({ accessToken: token, item: values }));
+      }
+    });
+    setPortfolioDialogOpen(false);
+  };
+
+  const handleDeletePortfolio = (itemId: string) => {
+    getAccessToken().then((token) => dispatch(removePortfolioItem({ accessToken: token, itemId })));
   };
 
   const handleResumeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,34 +234,27 @@ const Profile = () => {
     getAccessToken().then((token) => downloadResume(token, resumeId, name));
   };
 
-  const applyFormValid =
-    !!applyForJob && !!selectedResumeId && !!authorized && consentData && consentChecks;
+  // Sections the checklist can send the candidate to. A non-zero signal makes
+  // that section open its editor; sections without an editor just scroll into view.
+  const [editorSignals, setEditorSignals] = useState<Record<string, number>>({});
 
-  const handleSubmitApplication = () => {
-    if (!applyFormValid || !applyForJob) return;
-    setSubmitting(true);
-    getAccessToken()
-      .then((token) =>
-        dispatch(submitApplication({ accessToken: token, jobId: applyForJob.id, resumeId: selectedResumeId })).unwrap(),
-      )
-      .then(() => {
-        dispatch(enqueueSnackbarMessage({ message: SnackMessage.success.applicationSubmitted, type: "success" }));
-        setSearchParams({});
-        navigate("/applications");
-      })
-      .catch((err) => {
-        const message =
-          err?.response?.data?.detail ?? SnackMessage.error.submitApplication;
-        dispatch(enqueueSnackbarMessage({ message, type: "error" }));
-      })
-      .finally(() => setSubmitting(false));
+  const goToSection = (sectionId: string) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setEditorSignals((prev) => ({ ...prev, [sectionId]: (prev[sectionId] ?? 0) + 1 }));
   };
 
-  const getCompletionColor = () => {
-    if (profile.completionPercentage >= 80) return "#10B981";
-    if (profile.completionPercentage >= 50) return "#F59E0B";
-    return "#EF4444";
-  };
+  const missingItems = [
+    { label: "Add your phone number", section: "basic", missing: !profile.phone },
+    { label: "Add your address", section: "basic", missing: !profile.address },
+    { label: "Link your LinkedIn", section: "basic", missing: !profile.linkedIn },
+    { label: "Link your GitHub", section: "basic", missing: !profile.github },
+    { label: "Add your current role", section: "professional", missing: !profile.currentRole },
+    { label: "Write a professional summary", section: "professional", missing: !profile.summary },
+    { label: "Add your university", section: "professional", missing: !profile.university },
+    { label: "Add some skills", section: "skills", missing: profile.skills.length === 0 },
+    { label: "Upload a resume", section: "resume", missing: profile.resumes.length === 0 },
+    { label: "Add a portfolio item", section: "portfolio", missing: profile.portfolio.length === 0 },
+  ].filter((item) => item.missing);
 
   if (profileState === State.loading && !profile.personId) {
     return (
@@ -226,132 +265,33 @@ const Profile = () => {
   }
 
   return (
-    <Box sx={{ maxWidth: 1080, mx: "auto", px: { xs: 2, md: 3 }, py: { xs: 4, md: 5 } }}>
-      {/* Header */}
-      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" mb={3}>
-        <Box>
-          <Typography variant="h2" fontWeight={700} mb={0.5}>
-            <Box component="span" sx={{ color: "#ff6700" }}>
-              Candidate
-            </Box>{" "}
-            <Box component="span" sx={{ color: "#17223A" }}>
-              Passport
-            </Box>
-          </Typography>
-          <Typography color="text.secondary" fontSize="14px">
-            Your persistent professional identity applies to every WSO2 job automatically.
-          </Typography>
-        </Box>
-        <Chip
-          icon={<Shield size={13} />}
-          label={`#${profile.personId}`}
-          size="small"
-          sx={{ backgroundColor: "#ff670015", color: "#ff6700", fontWeight: 600 }}
-        />
-      </Stack>
-
-      {/* Apply-for-job card — shown whenever we arrived via a job's Apply button */}
-      {applyForJobId && applyForJob && (
-        <Card
-          elevation={0}
-          sx={{ border: "2px solid", borderColor: "primary.main", borderRadius: "12px", mb: 3 }}
+    <Box>
+      <Box sx={{ maxWidth: 1080, mx: "auto", px: { xs: 2, md: 3 }, pt: { xs: 2.5, md: 3 }, pb: { xs: 4, md: 5 } }}>
+        <Typography
+          component="h2"
+          sx={{
+            textAlign: "center",
+            fontSize: { xs: "34px", md: "48px" },
+            fontWeight: 800,
+            lineHeight: 1.15,
+            mb: 1.5,
+          }}
         >
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" fontWeight={700} mb={0.5}>
-              Apply for {applyForJob.title}
-            </Typography>
-            <Typography color="text.secondary" fontSize="13px" mb={2.5}>
-              {applyForJob.team} · {applyForJob.country.join(", ")}
-            </Typography>
-
-            <Grid container spacing={2} mb={2.5}>
-              {[
-                { label: "Name", value: `${profile.firstName} ${profile.lastName}`.trim() || "Not set" },
-                { label: "Email", value: profile.email || "Not set" },
-                { label: "Phone", value: profile.phone || "Not set" },
-                { label: "Address", value: profile.address || "Not set" },
-              ].map((f) => (
-                <Grid key={f.label} size={{ xs: 12, sm: 6 }}>
-                  <Typography fontSize="11px" color="text.secondary" fontWeight={600} textTransform="uppercase">
-                    {f.label}
-                  </Typography>
-                  <Typography fontSize="14px">{f.value}</Typography>
-                </Grid>
-              ))}
-            </Grid>
-            <Typography fontSize="12px" color="text.secondary" mb={2.5}>
-              Need to change any of these? Edit them in Basic Information / Professional Details below, then come
-              back here.
-            </Typography>
-
-            <Stack gap={2.5}>
-              <Box>
-                <Typography fontSize="13px" fontWeight={600} mb={0.75}>
-                  Resume
-                </Typography>
-                <Select
-                  size="small"
-                  fullWidth
-                  value={selectedResumeId}
-                  onChange={(e) => setSelectedResumeId(e.target.value)}
-                  displayEmpty
-                >
-                  {profile.resumes.length === 0 && (
-                    <MenuItem value="" disabled>
-                      No resumes uploaded — add one in the Resume section below
-                    </MenuItem>
-                  )}
-                  {profile.resumes.map((r) => (
-                    <MenuItem key={r.id} value={r.id}>
-                      {r.name} {r.isActive && "(Active)"}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </Box>
-
-              <Box>
-                <Typography fontSize="13px" fontWeight={600} mb={0.5}>
-                  Do you have authorization to work in this job's location? *
-                </Typography>
-                <RadioGroup row value={authorized} onChange={(e) => setAuthorized(e.target.value as "yes" | "no")}>
-                  <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
-                  <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
-                </RadioGroup>
-              </Box>
-
-              <Stack gap={1}>
-                <FormControlLabel
-                  control={<Checkbox size="small" checked={consentData} onChange={(e) => setConsentData(e.target.checked)} />}
-                  label={
-                    <Typography fontSize="13px">
-                      Yes, I give WSO2 permission to use my personal data for recruitment purposes only.
-                    </Typography>
-                  }
-                />
-                <FormControlLabel
-                  control={<Checkbox size="small" checked={consentChecks} onChange={(e) => setConsentChecks(e.target.checked)} />}
-                  label={
-                    <Typography fontSize="13px">
-                      I give WSO2 permission to assess my suitability for employment and to conduct independent
-                      reference checks and verify the information I provided, beyond what is on my résumé. *
-                    </Typography>
-                  }
-                />
-              </Stack>
-
-              <Button
-                variant="contained"
-                size="large"
-                disabled={!applyFormValid || submitting}
-                onClick={handleSubmitApplication}
-                sx={{ borderRadius: "999px", fontWeight: 700, alignSelf: "flex-start", px: 4 }}
-              >
-                {submitting ? "Submitting..." : `Submit Application for ${applyForJob.title}`}
-              </Button>
-            </Stack>
-          </CardContent>
-        </Card>
-      )}
+          <Box component="span" sx={{ color: "#ff6700" }}>
+            Candidate
+          </Box>{" "}
+          <Box component="span" sx={{ color: "text.primary" }}>
+            Passport
+          </Box>
+        </Typography>
+        <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
+          <Chip
+            icon={<Shield size={13} color="#ff6700" />}
+            label={`#${profile.personId}`}
+            size="small"
+            sx={{ backgroundColor: "#ff670015", color: "#ff6700", fontWeight: 600 }}
+          />
+        </Box>
 
       <Grid container spacing={3}>
         {/* Left — Profile Summary Card */}
@@ -365,16 +305,32 @@ const Profile = () => {
               textAlign: "center",
               position: "sticky",
               top: 16,
+              boxShadow: "0 24px 48px -24px rgba(11,18,32,0.45)",
             }}
           >
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ position: "relative", display: "inline-flex", mb: 2 }}>
+                <svg width={0} height={0} style={{ position: "absolute" }}>
+                  <defs>
+                    <linearGradient id="completionRing" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#ffa040" />
+                      <stop offset="100%" stopColor="#ff6700" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <CircularProgress
+                  variant="determinate"
+                  value={100}
+                  size={100}
+                  thickness={3}
+                  sx={{ position: "absolute", color: "divider" }}
+                />
                 <CircularProgress
                   variant="determinate"
                   value={profile.completionPercentage}
                   size={100}
                   thickness={3}
-                  sx={{ color: getCompletionColor() }}
+                  sx={{ "& .MuiCircularProgress-circle": { stroke: "url(#completionRing)", strokeLinecap: "round" } }}
                 />
                 <Box
                   sx={{
@@ -397,33 +353,78 @@ const Profile = () => {
               <Typography fontWeight={700} fontSize="16px">
                 {profile.firstName} {profile.lastName}
               </Typography>
-              <Typography fontSize="13px" color="text.secondary" mb={0.5}>
+              <Typography fontSize="0.9rem" color="text.secondary" mb={0.5}>
                 {profile.currentRole}
               </Typography>
-              <Typography fontSize="12px" color={getCompletionColor()} fontWeight={600} mb={2}>
+              <Typography fontSize="0.8rem" color="#ff6700" fontWeight={600} mb={2}>
                 {profile.completionPercentage}% complete
               </Typography>
 
               <Stack gap={1}>
                 <Stack direction="row" alignItems="center" gap={1}>
                   <Mail size={13} color="#9CA3AF" />
-                  <Typography fontSize="12px" color="text.secondary" noWrap>
+                  <Typography fontSize="0.8rem" color="text.secondary" noWrap>
                     {profile.email}
                   </Typography>
                 </Stack>
                 <Stack direction="row" alignItems="center" gap={1}>
                   <MapPin size={13} color="#9CA3AF" />
-                  <Typography fontSize="12px" color="text.secondary">
+                  <Typography fontSize="0.8rem" color="text.secondary">
                     {profile.country}
                   </Typography>
                 </Stack>
                 <Stack direction="row" alignItems="center" gap={1}>
                   <Briefcase size={13} color="#9CA3AF" />
-                  <Typography fontSize="12px" color="text.secondary">
+                  <Typography fontSize="0.8rem" color="text.secondary">
                     {profile.yearsOfExperience} years exp.
                   </Typography>
                 </Stack>
               </Stack>
+
+              {missingItems.length > 0 && (
+                <Box sx={{ mt: 2.5, pt: 2, borderTop: "1px solid", borderColor: "divider", textAlign: "left" }}>
+                  <Stack direction="row" alignItems="center" gap={0.75} mb={1}>
+                    <Sparkles size={14} color="#ff6700" />
+                    <Typography fontSize="0.8rem" fontWeight={700}>
+                      Complete your profile
+                    </Typography>
+                  </Stack>
+                  <Stack gap={0.5}>
+                    {missingItems.slice(0, 5).map((item) => (
+                      <Box
+                        key={item.label}
+                        component="button"
+                        onClick={() => goToSection(item.section)}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 1,
+                          width: "100%",
+                          p: "6px 8px",
+                          border: "none",
+                          borderRadius: "8px",
+                          background: "none",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          color: "text.secondary",
+                          textAlign: "left",
+                          transition: "background 0.15s, color 0.15s",
+                          "&:hover": { background: "#ff670012", color: "#ff6700" },
+                        }}
+                      >
+                        <span>{item.label}</span>
+                        <ArrowRight size={12} />
+                      </Box>
+                    ))}
+                  </Stack>
+                  {missingItems.length > 5 && (
+                    <Typography fontSize="11px" color="text.secondary" mt={0.5} ml={1}>
+                      +{missingItems.length - 5} more
+                    </Typography>
+                  )}
+                </Box>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -432,6 +433,10 @@ const Profile = () => {
         <Grid size={{ xs: 12, md: 9 }}>
           {/* Basic Info */}
           <ProfileSection
+            id="basic"
+            delay={0.05}
+            openEditorSignal={editorSignals.basic}
+            closeEditorSignal={closeSignals.basic}
             title="Basic Information"
             icon={<Shield size={16} />}
             editContent={
@@ -468,7 +473,14 @@ const Profile = () => {
                     <TextField
                       label="Phone"
                       value={basicForm.phone}
-                      onChange={(e) => setBasicForm({ ...basicForm, phone: e.target.value })}
+                      onChange={(e) =>
+                        // Digits only, with a single "+" allowed at the start for the country code.
+                        setBasicForm({
+                          ...basicForm,
+                          phone: e.target.value.replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "").slice(0, 16),
+                        })
+                      }
+                      slotProps={{ htmlInput: { inputMode: "tel" } }}
                       fullWidth
                       size="small"
                     />
@@ -530,7 +542,7 @@ const Profile = () => {
                       component="a"
                       href={profile.linkedIn}
                       target="_blank"
-                      fontSize="13px"
+                      fontSize="0.9rem"
                       sx={{ color: "#3B82F6", textDecoration: "none" }}
                     >
                       View Profile
@@ -547,7 +559,7 @@ const Profile = () => {
                       component="a"
                       href={profile.github}
                       target="_blank"
-                      fontSize="13px"
+                      fontSize="0.9rem"
                       sx={{ color: "#3B82F6", textDecoration: "none" }}
                     >
                       View Profile
@@ -565,7 +577,7 @@ const Profile = () => {
                         {item.label}
                       </Typography>
                       {typeof item.value === "string" ? (
-                        <Typography fontSize="13px">{item.value}</Typography>
+                        <Typography fontSize="0.9rem">{item.value}</Typography>
                       ) : (
                         item.value
                       )}
@@ -578,6 +590,10 @@ const Profile = () => {
 
           {/* Professional Details */}
           <ProfileSection
+            id="professional"
+            delay={0.12}
+            openEditorSignal={editorSignals.professional}
+            closeEditorSignal={closeSignals.professional}
             title="Professional Details"
             icon={<Briefcase size={16} />}
             editContent={
@@ -667,6 +683,9 @@ const Profile = () => {
 
           {/* Skills */}
           <ProfileSection
+            id="skills"
+            delay={0.19}
+            openEditorSignal={editorSignals.skills}
             title="Skills"
             icon={<Star size={16} />}
             editContent={
@@ -681,14 +700,14 @@ const Profile = () => {
                         getAccessToken().then((token) => dispatch(removeSkill({ accessToken: token, skill })))
                       }
                       deleteIcon={<Trash2 size={12} />}
-                      sx={{ fontWeight: 500 }}
+                      sx={skillChipSx}
                     />
                   ))}
                 </Stack>
                 <Stack direction="row" gap={1} alignItems="center">
                   <TextField
                     size="small"
-                    placeholder="Add a skill (e.g., Golang)"
+                    placeholder="Add a skill"
                     value={newSkill}
                     onChange={(e) => setNewSkill(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleAddSkill()}
@@ -703,10 +722,10 @@ const Profile = () => {
           >
             <Stack direction="row" gap={1} flexWrap="wrap">
               {profile.skills.map((skill) => (
-                <Chip key={skill} label={skill} size="small" sx={{ fontWeight: 500 }} />
+                <Chip key={skill} label={skill} size="small" sx={skillChipSx} />
               ))}
               {profile.skills.length === 0 && (
-                <Typography fontSize="13px" color="text.secondary">
+                <Typography fontSize="0.9rem" color="text.secondary">
                   No skills added yet.
                 </Typography>
               )}
@@ -714,7 +733,7 @@ const Profile = () => {
           </ProfileSection>
 
           {/* Resume Management */}
-          <ProfileSection title="Resume" icon={<FileText size={16} />}>
+          <ProfileSection id="resume" delay={0.26} title="Resume" icon={<FileText size={16} />}>
             <Stack gap={1.5}>
               {profile.resumes.map((resume) => (
                 <Box
@@ -725,6 +744,8 @@ const Profile = () => {
                     border: "1px solid",
                     borderColor: resume.isActive ? "#ff6700" : "divider",
                     backgroundColor: resume.isActive ? "#ff670008" : "transparent",
+                    transition: "border-color 0.15s, background-color 0.15s",
+                    "&:hover": { borderColor: "#ff6700", backgroundColor: "#ff670008" },
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
@@ -735,7 +756,7 @@ const Profile = () => {
                   <Stack direction="row" alignItems="center" gap={1.5}>
                     <FileText size={18} color={resume.isActive ? "#ff6700" : "#9CA3AF"} />
                     <Box>
-                      <Typography fontSize="13px" fontWeight={600}>
+                      <Typography fontSize="0.9rem" fontWeight={600}>
                         {resume.name}
                       </Typography>
                       <Typography fontSize="11px" color="text.secondary">
@@ -748,7 +769,7 @@ const Profile = () => {
                       <Chip
                         label="Active"
                         size="small"
-                        sx={{ fontSize: "10px", height: 20, backgroundColor: "#ECFDF5", color: "#10B981", fontWeight: 600, mr: 0.5 }}
+                        sx={{ fontSize: "10px", height: 20, backgroundColor: "rgba(16,185,129,0.14)", color: "#10B981", fontWeight: 600, mr: 0.5 }}
                       />
                     ) : (
                       <Tooltip title="Set as active">
@@ -771,7 +792,7 @@ const Profile = () => {
                 </Box>
               ))}
               {resumeError && (
-                <Typography fontSize="13px" color="error.main">
+                <Typography fontSize="0.9rem" color="error.main">
                   {resumeError}
                 </Typography>
               )}
@@ -795,7 +816,7 @@ const Profile = () => {
           </ProfileSection>
 
           {/* Portfolio */}
-          <ProfileSection title="Portfolio" icon={<Globe size={16} />}>
+          <ProfileSection id="portfolio" delay={0.33} title="Portfolio" icon={<Globe size={16} />}>
             <Stack gap={1.5}>
               {profile.portfolio.map((item) => (
                 <Box
@@ -805,45 +826,167 @@ const Profile = () => {
                     borderRadius: "8px",
                     border: "1px solid",
                     borderColor: "divider",
+                    transition: "border-color 0.15s, background-color 0.15s",
+                    "&:hover": { borderColor: "#ff6700", backgroundColor: "#ff670008" },
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 1,
                   }}
                 >
-                  <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
-                    <Stack direction="row" gap={1.5} alignItems="flex-start">
-                      {item.type === "github" ? (
-                        <Github size={16} color="#9CA3AF" />
-                      ) : (
-                        <LinkIcon size={16} color="#9CA3AF" />
-                      )}
-                      <Box>
-                        <Typography fontSize="13px" fontWeight={600}>
-                          {item.title}
-                        </Typography>
-                        <Typography fontSize="12px" color="text.secondary" lineHeight={1.6}>
+                  <Stack direction="row" alignItems="center" gap={1.5}>
+                    {item.type === "github" ? (
+                      <Github size={18} color="#9CA3AF" />
+                    ) : (
+                      <LinkIcon size={18} color="#9CA3AF" />
+                    )}
+                    <Box>
+                      <Typography fontSize="0.9rem" fontWeight={600}>
+                        {item.title}
+                      </Typography>
+                      {item.description && (
+                        <Typography fontSize="11px" color="text.secondary">
                           {item.description}
                         </Typography>
-                      </Box>
-                    </Stack>
-                    <Typography
-                      component="a"
-                      href={item.url}
-                      target="_blank"
-                      fontSize="12px"
-                      sx={{ color: "#3B82F6", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}
-                    >
-                      View →
-                    </Typography>
+                      )}
+                    </Box>
+                  </Stack>
+                  <Stack direction="row" alignItems="center" gap={0.5}>
+                    <Tooltip title="Open">
+                      <IconButton size="small" component="a" href={item.url} target="_blank" rel="noreferrer">
+                        <ExternalLink size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Edit">
+                      <IconButton size="small" onClick={() => handleOpenEditPortfolio(item)}>
+                        <Pencil size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton size="small" onClick={() => handleDeletePortfolio(item.id)}>
+                        <Trash2 size={14} />
+                      </IconButton>
+                    </Tooltip>
                   </Stack>
                 </Box>
               ))}
               {profile.portfolio.length === 0 && (
-                <Typography fontSize="13px" color="text.secondary">
+                <Typography fontSize="0.9rem" color="text.secondary">
                   No portfolio items added.
                 </Typography>
               )}
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Plus size={14} />}
+                onClick={handleOpenAddPortfolio}
+                sx={{ alignSelf: "flex-start", borderRadius: "8px" }}
+              >
+                Add Portfolio Item
+              </Button>
             </Stack>
+
+            <Dialog open={portfolioDialogOpen} onClose={() => setPortfolioDialogOpen(false)} fullWidth maxWidth="sm">
+              <DialogTitle sx={{ fontWeight: 700 }}>
+                {editingPortfolioId ? "Edit Portfolio Item" : "Add Portfolio Item"}
+              </DialogTitle>
+              <DialogContent>
+                <Stack gap={2} sx={{ pt: 1 }}>
+                  <TextField
+                    label="Title"
+                    value={portfolioForm.title}
+                    onChange={(e) => setPortfolioForm({ ...portfolioForm, title: e.target.value })}
+                    fullWidth
+                    size="small"
+                  />
+                  <Select
+                    size="small"
+                    fullWidth
+                    value={portfolioForm.type}
+                    onChange={(e) =>
+                      setPortfolioForm({ ...portfolioForm, type: e.target.value as PortfolioItem["type"] })
+                    }
+                  >
+                    {(Object.keys(PORTFOLIO_TYPE_LABELS) as PortfolioItem["type"][]).map((type) => (
+                      <MenuItem key={type} value={type}>
+                        {PORTFOLIO_TYPE_LABELS[type]}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <TextField
+                    label="URL"
+                    placeholder="https://"
+                    value={portfolioForm.url}
+                    onChange={(e) => setPortfolioForm({ ...portfolioForm, url: e.target.value })}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Description (optional)"
+                    value={portfolioForm.description}
+                    onChange={(e) => setPortfolioForm({ ...portfolioForm, description: e.target.value })}
+                    fullWidth
+                    size="small"
+                    multiline
+                    rows={3}
+                  />
+                  {portfolioError && (
+                    <Typography fontSize="0.9rem" color="error.main">
+                      {portfolioError}
+                    </Typography>
+                  )}
+                </Stack>
+              </DialogContent>
+              <DialogActions sx={{ px: 3, pb: 2 }}>
+                <Button onClick={() => setPortfolioDialogOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={handleSubmitPortfolio}>
+                  {editingPortfolioId ? "Save" : "Add"}
+                </Button>
+              </DialogActions>
+            </Dialog>
           </ProfileSection>
         </Grid>
       </Grid>
+
+      <Dialog
+        open={savedOpen}
+        onClose={() => setSavedOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{ sx: { borderRadius: "16px", textAlign: "center" } }}
+      >
+        <DialogContent sx={{ pt: 4, pb: 1 }}>
+          <Box
+            sx={{
+              width: 64,
+              height: 64,
+              mx: "auto",
+              mb: 2,
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(16,185,129,0.15)",
+              color: "#10B981",
+            }}
+          >
+            <Check size={32} strokeWidth={3} />
+          </Box>
+          <Typography fontWeight={800} fontSize="1.4rem" color="text.primary" mb={1}>
+            Saved!
+          </Typography>
+          <Typography fontSize="0.95rem" color="text.primary">
+            Your profile changes have been saved.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: "center", pb: 3, pt: 2 }}>
+          <Button variant="contained" onClick={() => setSavedOpen(false)} sx={{ borderRadius: "999px", fontWeight: 700, px: 4 }}>
+            Done
+          </Button>
+        </DialogActions>
+      </Dialog>
+      </Box>
     </Box>
   );
 };

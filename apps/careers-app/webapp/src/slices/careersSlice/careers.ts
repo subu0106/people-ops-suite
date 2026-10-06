@@ -16,15 +16,18 @@
 
 import { PayloadAction, createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
-import { Application, CandidateProfile, Job } from "@/types/types";
+import { Application, CandidateProfile, Job, OfferDecision, PortfolioItem } from "@/types/types";
 import { State } from "@/types/types";
 import {
   activateResume as activateResumeApi,
   deleteResume as deleteResumeApi,
   fetchApplications as fetchApplicationsApi,
   fetchProfile as fetchProfileApi,
+  respondToOffer as respondToOfferApi,
   saveProfile as saveProfileApi,
   submitApplication as submitApplicationApi,
+  submitApplicationDocuments as submitApplicationDocumentsApi,
+  uploadApplicationDocument as uploadApplicationDocumentApi,
   uploadResume as uploadResumeApi,
 } from "@utils/profileService";
 import {
@@ -132,6 +135,25 @@ export const removeSkill = createAsyncThunk(
   },
 );
 
+export const addPortfolioItem = createAsyncThunk(
+  "careers/addPortfolioItem",
+  async ({ accessToken, item }: { accessToken: string; item: Omit<PortfolioItem, "id"> }, { getState }) => {
+    const { careers } = getState() as { careers: CareersState };
+    const portfolio = [...careers.profile.portfolio, { ...item, id: `p-${Date.now()}` }];
+    return await saveProfileApi(accessToken, { portfolio });
+  },
+);
+
+export const removePortfolioItem = createAsyncThunk(
+  "careers/removePortfolioItem",
+  async ({ accessToken, itemId }: { accessToken: string; itemId: string }, { getState }) => {
+    const { careers } = getState() as { careers: CareersState };
+    return await saveProfileApi(accessToken, {
+      portfolio: careers.profile.portfolio.filter((p) => p.id !== itemId),
+    });
+  },
+);
+
 export const uploadResume = createAsyncThunk(
   "careers/uploadResume",
   async ({ accessToken, file }: { accessToken: string; file: File }) => {
@@ -159,10 +181,64 @@ export const loadApplications = createAsyncThunk("careers/loadApplications", asy
 
 export const submitApplication = createAsyncThunk(
   "careers/submitApplication",
-  async ({ accessToken, jobId, resumeId }: { accessToken: string; jobId: string; resumeId: string }) => {
-    return await submitApplicationApi(accessToken, jobId, resumeId);
+  async (
+    { accessToken, jobId, resumeId }: { accessToken: string; jobId: string; resumeId: string },
+    { getState },
+  ) => {
+    // The job's title and team travel with the request so a stand-in backend can list the new application.
+    const { careers } = getState() as { careers: CareersState };
+    const job = careers.jobDetails[jobId] ?? careers.jobs.find((j) => j.id === jobId);
+    return await submitApplicationApi(accessToken, jobId, resumeId, {
+      jobTitle: job?.title ?? "",
+      department: job?.team ?? "",
+    });
   },
 );
+
+export const respondToOffer = createAsyncThunk(
+  "careers/respondToOffer",
+  async ({
+    accessToken,
+    applicationId,
+    decision,
+  }: {
+    accessToken: string;
+    applicationId: string;
+    decision: Exclude<OfferDecision, "Pending">;
+  }) => {
+    return await respondToOfferApi(accessToken, applicationId, decision);
+  },
+);
+
+export const uploadApplicationDocument = createAsyncThunk(
+  "careers/uploadApplicationDocument",
+  async ({
+    accessToken,
+    applicationId,
+    documentId,
+    file,
+  }: {
+    accessToken: string;
+    applicationId: string;
+    documentId: string;
+    file: File;
+  }) => {
+    return await uploadApplicationDocumentApi(accessToken, applicationId, documentId, file);
+  },
+);
+
+export const submitApplicationDocuments = createAsyncThunk(
+  "careers/submitApplicationDocuments",
+  async ({ accessToken, applicationId }: { accessToken: string; applicationId: string }) => {
+    return await submitApplicationDocumentsApi(accessToken, applicationId);
+  },
+);
+
+// Swaps in the server's latest copy of one application, leaving the rest of the list untouched.
+function replaceApplication(applications: Application[], updated: Application) {
+  const idx = applications.findIndex((a) => a.id === updated.id);
+  if (idx >= 0) applications[idx] = updated;
+}
 
 export const CareersSlice = createSlice({
   name: "careers",
@@ -222,6 +298,12 @@ export const CareersSlice = createSlice({
       .addCase(removeSkill.fulfilled, (state, action) => {
         state.profile = action.payload;
       })
+      .addCase(addPortfolioItem.fulfilled, (state, action) => {
+        state.profile = action.payload;
+      })
+      .addCase(removePortfolioItem.fulfilled, (state, action) => {
+        state.profile = action.payload;
+      })
       .addCase(uploadResume.fulfilled, (state, action) => {
         state.profile = action.payload;
       })
@@ -240,6 +322,15 @@ export const CareersSlice = createSlice({
       })
       .addCase(loadApplications.rejected, (state) => {
         state.applicationsState = State.failed;
+      })
+      .addCase(respondToOffer.fulfilled, (state, action) => {
+        replaceApplication(state.applications, action.payload);
+      })
+      .addCase(uploadApplicationDocument.fulfilled, (state, action) => {
+        replaceApplication(state.applications, action.payload);
+      })
+      .addCase(submitApplicationDocuments.fulfilled, (state, action) => {
+        replaceApplication(state.applications, action.payload);
       })
       .addCase(submitApplication.fulfilled, (state, action) => {
         const idx = state.applications.findIndex((a) => a.id === action.payload.id);

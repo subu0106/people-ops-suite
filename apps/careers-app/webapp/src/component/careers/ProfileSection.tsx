@@ -15,28 +15,88 @@
 // under the License.
 
 import { Box, Card, CardContent, IconButton, Stack, Tooltip, Typography } from "@mui/material";
+import { keyframes } from "@mui/material/styles";
 import { Pencil, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const fadeUp = keyframes`
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
 
 interface ProfileSectionProps {
   title: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
   editContent?: React.ReactNode;
+  // Anchor for scrolling to the section.
+  id?: string;
+  // Seconds to wait before the entrance animation starts, to stagger sections.
+  delay?: number;
+  // Opens the editor each time the value changes to a new non-zero number.
+  openEditorSignal?: number;
+  // Returns the section to its read-only view each time the value changes to a new non-zero number.
+  closeEditorSignal?: number;
 }
 
-const ProfileSection = ({ title, icon, children, editContent }: ProfileSectionProps) => {
+const ProfileSection = ({
+  title,
+  icon,
+  children,
+  editContent,
+  id,
+  delay = 0,
+  openEditorSignal,
+  closeEditorSignal,
+}: ProfileSectionProps) => {
   const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (openEditorSignal && editContent) setEditing(true);
+  }, [openEditorSignal, editContent]);
+
+  useEffect(() => {
+    if (closeEditorSignal) setEditing(false);
+  }, [closeEditorSignal]);
 
   return (
     <Card
+      id={id}
       elevation={0}
-      sx={{ border: "1px solid", borderColor: "divider", borderRadius: "12px", mb: 2 }}
+      sx={{
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: "12px",
+        mb: 2,
+        scrollMarginTop: "24px",
+        animation: `${fadeUp} 0.5s ease ${delay}s both`,
+        transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          borderColor: "rgba(255,103,0,0.45)",
+          boxShadow: "0 12px 32px -14px rgba(255,103,0,0.35)",
+        },
+      }}
     >
       <CardContent sx={{ p: 3 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-          <Stack direction="row" alignItems="center" gap={1}>
-            {icon && <Box sx={{ color: "#ff6700", display: "flex" }}>{icon}</Box>}
+          <Stack direction="row" alignItems="center" gap={1.25}>
+            {icon && (
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  backgroundColor: "#ff670015",
+                  color: "#ff6700",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {icon}
+              </Box>
+            )}
             <Typography fontWeight={700} fontSize="15px">
               {title}
             </Typography>

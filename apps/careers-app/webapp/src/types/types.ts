@@ -117,6 +117,51 @@ export interface Job {
 
 // ── Applications ───────────────────────────────────────────────────────────────
 
+// What an applicant without an account submits alongside their CV.
+export interface GuestApplicationDetails {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+  authorizedToWork: boolean;
+}
+
+export interface ApplicationTimelineEvent {
+  stage: ApplicationStatus;
+  date: string;
+  note: string;
+}
+
+export interface ApplicationInterview {
+  id: string;
+  round: string;
+  // ISO date-time of the interview.
+  dateTime: string;
+  mode: "Video" | "Phone" | "Onsite";
+  // A meeting link for video interviews, a number for phone, an address for onsite.
+  location: string;
+  status: "Upcoming" | "Completed" | "Cancelled";
+}
+
+export type OfferDecision = "Pending" | "Accepted" | "Declined";
+
+export interface ApplicationOffer {
+  position: string;
+  issuedDate: string;
+  expiryDate: string;
+  decision: OfferDecision;
+}
+
+export interface RequiredDocument {
+  id: string;
+  name: string;
+  description: string;
+  uploadedFileName: string | null;
+  uploadedAt: string | null;
+}
+
+// The tracking fields are optional: a freshly submitted application only carries the basics.
 export interface Application {
   id: string;
   jobId: string;
@@ -126,4 +171,9 @@ export interface Application {
   status: ApplicationStatus;
   resumeVersionId: string;
   notes: string;
+  timeline?: ApplicationTimelineEvent[];
+  interviews?: ApplicationInterview[];
+  offer?: ApplicationOffer | null;
+  requiredDocuments?: RequiredDocument[];
+  documentsSubmitted?: boolean;
 }

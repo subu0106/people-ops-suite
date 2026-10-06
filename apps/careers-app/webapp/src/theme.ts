@@ -23,7 +23,7 @@ const wso2 = {
     100: "#FFEDD5",
     200: "#FED7AA",
     400: "#FB923C",
-    500: "#FF7300",
+    500: "#ff6700",
     600: "#EA6A00",
     700: "#C2570A",
     800: "#9A4408",
@@ -125,11 +125,12 @@ export const themeSettings = (mode: PaletteMode) => {
       info: { main: "#3B82F6", light: "#60A5FA", dark: "#2563EB" },
       success: { main: "#10B981", light: "#34D399", dark: "#059669" },
       background: {
-        default: isDark ? "#0f0f0f" : "#F8F9FA",
-        paper: isDark ? "#1a1a1a" : "#FFFFFF",
+        default: isDark ? "#0B1220" : "#F1F4F9",
+        paper: isDark ? "#131E38" : "#FFFFFF",
       },
+      divider: isDark ? "#2A3A5F" : "#e2e5ec",
       text: {
-        primary: isDark ? "#F9FAFB" : "#111827",
+        primary: isDark ? "#F9FAFB" : "#17223A",
         secondary: isDark ? "#9CA3AF" : "#6B7280",
         disabled: isDark ? "#4B5563" : "#9CA3AF",
       },
@@ -157,30 +158,30 @@ export const themeSettings = (mode: PaletteMode) => {
         hover: isDark ? "#F9FAFB" : "#111827",
         hoverBg: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
         clicked: isDark ? "#FFFFFF" : "#111827",
-        clickedBg: isDark ? "rgba(255,115,0,0.15)" : "rgba(255,115,0,0.1)",
+        clickedBg: isDark ? "rgba(255,103,0,0.15)" : "rgba(255,103,0,0.1)",
         border: isDark ? "#374151" : "#E5E7EB",
       },
 
       surface: {
         primary: {
-          active: isDark ? "#0f0f0f" : "#F8F9FA",
-          hover: isDark ? "#1a1a1a" : "#FFFFFF",
+          active: isDark ? "#0B1220" : "#F8F9FA",
+          hover: isDark ? "#131E38" : "#FFFFFF",
         },
         secondary: {
-          active: isDark ? "#141414" : "#FFFFFF",
-          hover: isDark ? "#1f1f1f" : "#F9FAFB",
+          active: isDark ? "#0F1830" : "#FFFFFF",
+          hover: isDark ? "#182545" : "#F9FAFB",
         },
         territory: {
-          active: isDark ? "#111111" : "#FFFFFF",
+          active: isDark ? "#0E1730" : "#FFFFFF",
         },
       },
 
       customText: {
         primary: {
-          p1: { active: isDark ? "#F9FAFB" : "#111827", hover: "#FF7300" },
-          p2: { active: isDark ? "#D1D5DB" : "#374151", hover: "#FF7300" },
-          p3: { active: isDark ? "#9CA3AF" : "#6B7280", hover: "#FF7300" },
-          p4: { active: isDark ? "#6B7280" : "#9CA3AF", hover: "#FF7300" },
+          p1: { active: isDark ? "#F9FAFB" : "#111827", hover: "#ff6700" },
+          p2: { active: isDark ? "#D1D5DB" : "#374151", hover: "#ff6700" },
+          p3: { active: isDark ? "#9CA3AF" : "#6B7280", hover: "#ff6700" },
+          p4: { active: isDark ? "#6B7280" : "#9CA3AF", hover: "#ff6700" },
         },
         brand: {
           p1: { active: wso2.orange[500], hover: wso2.orange[600], disabled: "#FFB380" },
@@ -195,7 +196,7 @@ export const themeSettings = (mode: PaletteMode) => {
     },
 
     typography: {
-      fontFamily: '"Inter", system-ui, -apple-system, sans-serif',
+      fontFamily: '"Plus Jakarta Sans", sans-serif',
       fontSize: 14,
       h1: { fontSize: "2.5rem", fontWeight: 800, lineHeight: 1.2 },
       h2: { fontSize: "2rem", fontWeight: 700, lineHeight: 1.25 },
@@ -203,7 +204,7 @@ export const themeSettings = (mode: PaletteMode) => {
       h4: { fontSize: "1.5rem", fontWeight: 700, lineHeight: 1.35 },
       h5: { fontSize: "1.25rem", fontWeight: 600, lineHeight: 1.4 },
       h6: { fontSize: "1.1rem", fontWeight: 600, lineHeight: 1.4 },
-      body1: { fontSize: "0.9375rem", lineHeight: 1.6 },
+      body1: { fontSize: "1rem", lineHeight: 1.6, letterSpacing: ".018rem" },
       body2: { fontSize: "0.875rem", lineHeight: 1.6 },
       caption: { fontSize: "0.75rem", lineHeight: 1.5 },
       overline: { fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" as const },
@@ -248,6 +249,27 @@ export const themeSettings = (mode: PaletteMode) => {
         styleOverrides: {
           root: {
             "& .MuiOutlinedInput-root": { borderRadius: 8 },
+          },
+        },
+      },
+      // Covers TextField, Select and multiline inputs. Error and disabled
+      // states keep their own outline colors.
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            "&:not(.Mui-error):not(.Mui-disabled):hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: "#ff6700",
+            },
+            "&.Mui-focused:not(.Mui-error) .MuiOutlinedInput-notchedOutline": {
+              borderColor: "#ff6700",
+            },
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            "&.Mui-focused:not(.Mui-error)": { color: "#ff6700" },
           },
         },
       },

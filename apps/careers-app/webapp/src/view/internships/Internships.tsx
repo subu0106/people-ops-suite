@@ -30,9 +30,8 @@ import {
   Video,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 
-import { useAuthContext } from "@asgardeo/auth-react";
+import { useAppAuthContext } from "@context/AuthContext";
 
 import internsTeam from "@assets/images/internship-page-img.jpeg";
 import JobCard from "@component/careers/JobCard";
@@ -52,7 +51,7 @@ const Section = ({ children, alt, id }: { children: React.ReactNode; alt?: boole
 const SectionHeading = ({ children }: { children: React.ReactNode }) => (
   <Typography
     component="h2"
-    sx={{ textAlign: "center", fontSize: { xs: "28px", md: "38px" }, fontWeight: 800, color: "#17223A", mb: 5 }}
+    sx={{ textAlign: "center", fontSize: { xs: "28px", md: "38px" }, fontWeight: 800, color: "text.primary", mb: 5 }}
   >
     {children}
   </Typography>
@@ -137,9 +136,8 @@ const TESTIMONIALS = [
 ];
 
 const Internships = () => {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { getAccessToken } = useAuthContext();
+  const { getToken: getAccessToken } = useAppAuthContext();
   const jobs = useAppSelector((state: RootState) => state.careers.jobs);
   const jobsState = useAppSelector((state: RootState) => state.careers.jobsState);
   const benefitsRef = useRef<HTMLDivElement>(null);
@@ -165,7 +163,7 @@ const Internships = () => {
           <Grid size={{ xs: 12, md: 6 }}>
             <Stack gap={2} alignItems="flex-start">
               <Typography
-                sx={{ fontSize: { xs: "40px", md: "56px" }, fontWeight: 800, lineHeight: 1.1, color: "#17223A" }}
+                sx={{ fontSize: { xs: "40px", md: "56px" }, fontWeight: 800, lineHeight: 1.1, color: "text.primary" }}
               >
                 Internships
               </Typography>
@@ -323,7 +321,7 @@ const Internships = () => {
                     STEP {idx + 1}
                   </Typography>
                 </Stack>
-                <Typography fontWeight={700} fontSize="15px" color="#17223A" mb={1}>
+                <Typography fontWeight={700} fontSize="15px" color="text.primary" mb={1}>
                   {title}
                 </Typography>
                 <Typography fontSize="14px" color="text.secondary">
@@ -371,7 +369,7 @@ const Internships = () => {
                 >
                   <Icon size={22} />
                 </Box>
-                <Typography fontWeight={700} fontSize="17px" color="#17223A" mb={1}>
+                <Typography fontWeight={700} fontSize="17px" color="text.primary" mb={1}>
                   {title}
                 </Typography>
                 <Typography fontSize="14px" color="text.secondary">
@@ -422,7 +420,7 @@ const Internships = () => {
           <Grid container spacing={2}>
             {internshipJobs.map((job) => (
               <Grid key={job.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                <JobCard job={job} onApply={(job) => navigate(`/profile?applyFor=${job.id}`)} />
+                <JobCard job={job} />
               </Grid>
             ))}
           </Grid>
@@ -454,7 +452,7 @@ const Internships = () => {
                 <Typography fontSize="14px" color="text.secondary" fontStyle="italic" mb={2}>
                   &ldquo;{quote}&rdquo;
                 </Typography>
-                <Typography fontWeight={700} fontSize="14px" color="#17223A">
+                <Typography fontWeight={700} fontSize="14px" color="text.primary">
                   {name}
                 </Typography>
                 <Typography fontSize="12px" color="text.secondary">

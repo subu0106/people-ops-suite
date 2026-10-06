@@ -23,13 +23,18 @@ interface Props {
   size?: "small" | "medium";
 }
 
-const statusConfig: Record<ApplicationStatus, { color: string; bg: string }> = {
-  [ApplicationStatus.Applied]: { color: "#3B82F6", bg: "#EFF6FF" },
-  [ApplicationStatus.Screening]: { color: "#F59E0B", bg: "#FFFBEB" },
-  [ApplicationStatus.Interview]: { color: "#8B5CF6", bg: "#F5F3FF" },
-  [ApplicationStatus.Offer]: { color: "#10B981", bg: "#ECFDF5" },
-  [ApplicationStatus.Rejected]: { color: "#EF4444", bg: "#FEF2F2" },
+// Each status is a text color; its chip fill is a translucent tint of the same color so it reads on light and dark surfaces.
+const statusConfig: Record<ApplicationStatus, { color: string }> = {
+  [ApplicationStatus.Applied]: { color: "#3B82F6" },
+  [ApplicationStatus.Screening]: { color: "#F59E0B" },
+  [ApplicationStatus.Interview]: { color: "#8B5CF6" },
+  [ApplicationStatus.Offer]: { color: "#10B981" },
+  [ApplicationStatus.OfferAccepted]: { color: "#059669" },
+  [ApplicationStatus.OfferDeclined]: { color: "#6B7280" },
+  [ApplicationStatus.Rejected]: { color: "#EF4444" },
 };
+
+export const statusColor = (status: ApplicationStatus) => statusConfig[status].color;
 
 const ApplicationStatusBadge = ({ status, size = "small" }: Props) => {
   const config = statusConfig[status];
@@ -41,7 +46,7 @@ const ApplicationStatusBadge = ({ status, size = "small" }: Props) => {
         fontWeight: 600,
         fontSize: "11px",
         color: config.color,
-        backgroundColor: config.bg,
+        backgroundColor: `${config.color}22`,
         border: `1px solid ${config.color}30`,
         borderRadius: "6px",
       }}
