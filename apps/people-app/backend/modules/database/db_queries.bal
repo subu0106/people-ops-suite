@@ -98,32 +98,48 @@ isolated function getEmployeeIdQuery(int id) returns sql:ParameterizedQuery =>
 isolated function getEmployeeIdByEpfQuery(string epf) returns sql:ParameterizedQuery =>
     `SELECT employee_id FROM employee WHERE epf = ${epf} LIMIT 1;`;
 
-# Fetch the personal_info ID for a given NIC/Passport.
+# Every employment of the person behind a NIC/Passport, newest first.
 #
-# + nicOrPassport - National Identity Card number or Passport
-# + return - Query returning the personal_info ID
-isolated function getPersonalInfoIdByNicQuery(string nicOrPassport) returns sql:ParameterizedQuery =>
-    `SELECT id FROM personal_info WHERE nic_or_passport = ${nicOrPassport} LIMIT 1;`;
+# Used to recognise a returning employee at onboarding: whether they are still employed, and
+# which work email they held. Ordered by start date, then id for two starting the same day,
+# so the first row is their latest employment.
+#
+# + nicOrPassport - NIC/Passport from the onboarding submission
+# + return - Query returning the person's employment rows
+isolated function getEmploymentsByNicQuery(string nicOrPassport) returns sql:ParameterizedQuery =>
+    `SELECT
+        e.employee_id AS employeeId,
+        e.first_name AS firstName,
+        e.last_name AS lastName,
+        e.work_email AS workEmail,
+        e.employee_status AS employeeStatus
+     FROM employee e
+        INNER JOIN personal_info p ON p.id = e.personal_info_id
+     WHERE p.nic_or_passport = ${nicOrPassport}
+     ORDER BY e.start_date DESC, e.id DESC;`;
 
-# Check whether a personal_info ID already has an employee record under the given work email —
-# used to confirm a duplicate NIC/Passport belongs to the same person coming back (rehire).
+# Find an Active or New joiner employee holding a work email.
 #
-# + personalInfoId - personal_info ID matched by NIC/Passport
-# + workEmail - Work email from the new onboarding submission
-# + return - Query returning the count of matching employee records
-isolated function countEmployeeByPersonalInfoIdAndWorkEmailQuery(int personalInfoId, string workEmail)
-    returns sql:ParameterizedQuery =>
-    `SELECT COUNT(*) FROM employee
-     WHERE personal_info_id = ${personalInfoId}
-       AND LOWER(work_email) = LOWER(${workEmail});`;
-
-# Count active employee records linked to a personal_info ID — used to block onboarding a
-# rehire for someone who is still currently employed.
+# A Marked leaver does not hold on to their email here: an employee who relocates keeps it,
+# and their new employment is onboarded while the old one is Marked leaver.
 #
-# + personalInfoId - personal_info ID matched by NIC/Passport
-# + return - Query returning the count of active employee records
-isolated function countActiveEmployeeByPersonalInfoIdQuery(int personalInfoId) returns sql:ParameterizedQuery =>
-    `SELECT COUNT(*) FROM employee WHERE personal_info_id = ${personalInfoId} AND employee_status = ${EMPLOYEE_ACTIVE};`;
+# + workEmail - Work email to look for
+# + excludeEmployeeId - Employee ID to leave out (the employee being edited), nil for none
+# + return - Query returning at most one matching employee
+isolated function getCurrentEmployeeByWorkEmailQuery(string workEmail, string? excludeEmployeeId = ())
+        returns sql:ParameterizedQuery =>
+    `SELECT
+        e.employee_id AS employeeId,
+        e.first_name AS firstName,
+        e.last_name AS lastName,
+        e.work_email AS workEmail,
+        e.employee_status AS employeeStatus
+     FROM employee e
+     WHERE LOWER(e.work_email) = LOWER(${workEmail})
+       AND e.employee_status IN (${EMPLOYEE_ACTIVE}, ${EMPLOYEE_NEW_JOINER})
+       AND (${excludeEmployeeId} IS NULL OR e.employee_id <> ${excludeEmployeeId})
+     ORDER BY e.start_date DESC, e.id DESC
+     LIMIT 1;`;
 
 # Fetch employee work email by employee ID.
 #
@@ -157,6 +173,7 @@ isolated function getEmployeeInfoQuery(string employeeId) returns sql:Parameteri
             LIMIT 1
         ), '') AS managerName,
         COALESCE(eam.additionalManagerEmails, '') AS additionalManagerEmails,
+        elg.leadershipGroups AS leadershipGroups,
         pi.gender AS gender,
         (
             SELECT COUNT(1)
@@ -223,6 +240,17 @@ isolated function getEmployeeInfoQuery(string employeeId) returns sql:Parameteri
             WHERE is_active = 1
             GROUP BY employee_pk_id
         ) eam ON eam.employee_pk_id = e.id
+        LEFT JOIN (
+            SELECT
+                el.employee_pk_id,
+                GROUP_CONCAT(lg.name ORDER BY lg.name SEPARATOR ',') AS leadershipGroups
+            FROM employee_leadership el
+            JOIN leadership_group lg ON lg.id = el.leadership_group_id
+            -- A retired attribute is hidden from its holders' records; the assignment row
+            -- is kept, so reactivating the attribute brings it back.
+            WHERE el.is_active = 1 AND lg.is_active = 1
+            GROUP BY el.employee_pk_id
+        ) elg ON elg.employee_pk_id = e.id
         INNER JOIN employment_type et ON e.employment_type_id = et.id
         INNER JOIN designation d ON e.designation_id = d.id
         LEFT JOIN office o ON e.office_id = o.id
@@ -311,6 +339,7 @@ isolated function getEmployeesQuery(EmployeeSearchPayload payload, string? leadE
             e.company_id AS companyId,
             h.name AS house,
             e.house_id AS houseId,
+            elg.leadershipGroups AS leadershipGroups,
             -- Personal information is selected only where the caller is entitled to it. The
             -- columns are omitted from the SQL rather than blanked afterwards, so data nobody
             -- may see is never read out of the database at all.
@@ -356,6 +385,17 @@ isolated function getEmployeesQuery(EmployeeSearchPayload payload, string? leadE
                 WHERE is_active = 1
                 GROUP BY employee_pk_id
             ) eam ON eam.employee_pk_id = e.id
+
+            LEFT JOIN (
+                SELECT
+                    el.employee_pk_id,
+                    GROUP_CONCAT(lg.name ORDER BY lg.name SEPARATOR ',') AS leadershipGroups
+                FROM employee_leadership el
+                JOIN leadership_group lg ON lg.id = el.leadership_group_id
+                -- Retired attributes are hidden; see the single-employee query.
+                WHERE el.is_active = 1 AND lg.is_active = 1
+                GROUP BY el.employee_pk_id
+            ) elg ON elg.employee_pk_id = e.id
 
             LEFT JOIN (
                 SELECT
@@ -487,6 +527,23 @@ isolated function getEmployeesQuery(EmployeeSearchPayload payload, string? leadE
         appendIntFilter(filters, payload.filters.employmentTypeId, `e.employment_type_id = ${payload.filters.employmentTypeId}`);
     }
 
+    int[]? leadershipGroupList = payload.filters.leadershipGroupIds;
+    if leadershipGroupList is int[] && leadershipGroupList.length() > 0 {
+        // AND semantics: the employee must hold EVERY selected attribute, unlike the OR
+        // multi-selects above. A correlated IN (SELECT ... HAVING ...) is used rather than a
+        // join plus an outer HAVING so this composes with all three call sites, including
+        // ones that do not GROUP BY. Retired attributes are left out, as they are from every
+        // record and report: a Left employee may still hold one, and matching on it would
+        // return them without the attribute showing in their row.
+        filters.push(sql:queryConcat(
+            `e.id IN (SELECT el_f.employee_pk_id FROM employee_leadership el_f
+              JOIN leadership_group lg_f ON lg_f.id = el_f.leadership_group_id
+              WHERE el_f.is_active = 1 AND lg_f.is_active = 1 AND el_f.leadership_group_id IN (`,
+            buildIntInClause(leadershipGroupList),
+            `) GROUP BY el_f.employee_pk_id
+              HAVING COUNT(DISTINCT el_f.leadership_group_id) = ${leadershipGroupList.length()})`));
+    }
+
     if payload.filters.excludeFutureStartDate == true {
         filters.push(`e.start_date <= CURDATE()`);
     }
@@ -580,11 +637,13 @@ isolated function isLeadQuery(string leadEmail) returns sql:ParameterizedQuery =
 # + return - Parameterized query for continuous service record
 isolated function getContinuousServiceRecordQuery(string workEmail) returns sql:ParameterizedQuery =>
     `SELECT 
+        e.id AS id,
         e.employee_id AS employeeId,
         e.first_name AS firstName,
         e.last_name AS lastName,
         e.work_location AS workLocation,
         e.start_date AS startDate,
+        e.employee_status AS employeeStatus,
         e.manager_email AS managerEmail,
         COALESCE(eam.additionalManagerEmails, '') AS additionalManagerEmails,
         CONCAT(
@@ -1421,22 +1480,22 @@ isolated function updateDesignationQuery(int id, string? designation, int? jobBa
     return sql:queryConcat(query, ` WHERE id = ${id};`);
 }
 
-# Count active employees holding a designation.
+# Count active employees and new joiners holding a designation.
 #
 # + id - Designation ID
-# + return - Query counting active employees
+# + return - Query counting active employees and new joiners
 isolated function countActiveEmployeesInDesignationQuery(int id) returns sql:ParameterizedQuery =>
-    `SELECT COUNT(*) AS count FROM employee WHERE designation_id = ${id} AND employee_status = 'Active';`;
+    `SELECT COUNT(*) AS count FROM employee WHERE designation_id = ${id} AND employee_status IN ('Active', 'New joiner');`;
 
-# Count active employees across a career function's designations.
+# Count active employees and new joiners across a career function's designations.
 #
 # + id - Career function ID
-# + return - Query counting active employees
+# + return - Query counting active employees and new joiners
 isolated function countActiveEmployeesInCareerFunctionQuery(int id) returns sql:ParameterizedQuery =>
     `SELECT COUNT(*) AS count
      FROM employee e
      JOIN designation d ON d.id = e.designation_id
-     WHERE d.career_function_id = ${id} AND e.employee_status = 'Active';`;
+     WHERE d.career_function_id = ${id} AND e.employee_status IN ('Active', 'New joiner');`;
 
 # Get companies query.
 #
@@ -1517,6 +1576,108 @@ isolated function getAsgardeoGroupsForTeamQuery(int teamId, int employmentTypeId
 # + return - Houses query
 isolated function getHousesQuery() returns sql:ParameterizedQuery =>
     `SELECT id, name FROM house WHERE is_active = 1 ORDER BY name`;
+
+# Fetch the assignable leadership attributes.
+#
+# + return - Parameterized query returning active leadership_group rows
+isolated function getLeadershipGroupsQuery() returns sql:ParameterizedQuery =>
+    `SELECT id, name, is_active AS isActive
+     FROM leadership_group
+     WHERE is_active = 1
+     ORDER BY name;`;
+
+# The employee statuses whose holders block retiring a leadership attribute. A Left
+# employee's assignment does not: it stays in the DB and history, and is hidden once the
+# attribute is retired.
+#
+# + return - Parameterized list of the blocking statuses, for an IN (...) clause
+isolated function leadershipHolderStatuses() returns sql:ParameterizedQuery =>
+    `${EMPLOYEE_ACTIVE}, ${EMPLOYEE_MARKED_LEAVER}, ${EMPLOYEE_NEW_JOINER}`;
+
+# Every leadership attribute, retired ones included, with how many current employees hold it.
+#
+# + return - Parameterized query returning LeadershipGroupWithUsage rows, active first
+isolated function getLeadershipGroupsWithUsageQuery() returns sql:ParameterizedQuery =>
+    sql:queryConcat(
+        `SELECT lg.id, lg.name, lg.is_active AS isActive, COUNT(e.id) AS holderCount
+         FROM leadership_group lg
+         LEFT JOIN employee_leadership el
+            ON el.leadership_group_id = lg.id AND el.is_active = 1
+         LEFT JOIN employee e
+            ON e.id = el.employee_pk_id AND e.employee_status IN (`, leadershipHolderStatuses(), `)
+         GROUP BY lg.id, lg.name, lg.is_active
+         ORDER BY lg.is_active DESC, lg.name;`);
+
+# Count the current employees holding a leadership attribute.
+#
+# + id - Leadership attribute ID
+# + return - Parameterized query returning the holder count
+isolated function countLeadershipGroupHoldersQuery(int id) returns sql:ParameterizedQuery =>
+    sql:queryConcat(
+        `SELECT COUNT(*)
+         FROM employee_leadership el
+         JOIN employee e ON e.id = el.employee_pk_id
+         WHERE el.leadership_group_id = ${id} AND el.is_active = 1
+           AND e.employee_status IN (`, leadershipHolderStatuses(), `);`);
+
+# Create a leadership attribute.
+#
+# + name - Attribute name, already trimmed
+# + createdBy - Email of the admin performing the action
+# + return - Insert query
+isolated function createLeadershipGroupQuery(string name, string createdBy) returns sql:ParameterizedQuery =>
+    `INSERT INTO leadership_group (name, created_by, updated_by)
+     VALUES (${name}, ${createdBy}, ${createdBy});`;
+
+# Rename, retire or reactivate a leadership attribute.
+#
+# Retiring carries its own guard, so an attribute cannot be retired while current employees
+# hold it even if one is assigned between a check and this write. A guarded retire that
+# matches no row is therefore either an unknown ID or an attribute still in use; the caller
+# tells the two apart.
+#
+# + id - Leadership attribute ID
+# + name - New name, already trimmed, or nil to leave unchanged
+# + isActive - New active flag, or nil to leave unchanged
+# + updatedBy - Email of the admin performing the action
+# + return - Update query, or NoFieldsToUpdateError when nothing was supplied
+isolated function updateLeadershipGroupQuery(int id, string? name, boolean? isActive, string updatedBy)
+        returns sql:ParameterizedQuery|error {
+
+    sql:ParameterizedQuery[] updates = [];
+    if name is string {
+        updates.push(`name = ${name}`);
+    }
+    if isActive is boolean {
+        updates.push(`is_active = ${isActive}`);
+    }
+    if updates.length() == 0 {
+        return error NoFieldsToUpdateError("No fields to update");
+    }
+    updates.push(`updated_by = ${updatedBy}`);
+
+    sql:ParameterizedQuery query = `UPDATE leadership_group SET `;
+    foreach int i in 0 ..< updates.length() {
+        query = sql:queryConcat(query, i == 0 ? `` : `, `, updates[i]);
+    }
+    query = sql:queryConcat(query, ` WHERE id = ${id}`);
+    if isActive == false {
+        query = sql:queryConcat(query,
+            ` AND NOT EXISTS (
+                SELECT 1 FROM employee_leadership el
+                JOIN employee e ON e.id = el.employee_pk_id
+                WHERE el.leadership_group_id = ${id} AND el.is_active = 1
+                  AND e.employee_status IN (`, leadershipHolderStatuses(), `))`);
+    }
+    return sql:queryConcat(query, `;`);
+}
+
+# Check whether a leadership attribute exists.
+#
+# + id - Leadership attribute ID
+# + return - Parameterized query returning 1 when it exists
+isolated function leadershipGroupExistsQuery(int id) returns sql:ParameterizedQuery =>
+    `SELECT COUNT(*) FROM leadership_group WHERE id = ${id};`;
 
 # Add employee personal information query. Upserts on the nic_or_passport UNIQUE key so
 # rehiring someone (same NIC/Passport) refreshes their existing personal_info row instead of
@@ -1686,7 +1847,7 @@ isolated function addEmployeeQuery(CreateEmployeePayload payload, string created
             ${payload.epf},
             ${payload.companyId},
             ${payload.workLocation},
-            ${payload.workEmail},
+            ${payload.workEmail ?: FUTURE_JOINER_EMAIL},
             ${payload.startDate},
             ${payload.secondaryJobTitle},
             ${payload.jobRole},
@@ -2083,8 +2244,8 @@ isolated function updateEmployeeJobInfoQuery(string employeeId, UpdateEmployeeJo
         updates.push(`house_id = ${payload.houseId}`);
     }
 
-    if payload.continuousServiceRecord is string {
-        if payload.continuousServiceRecord == "" {
+    if payload.continuousServiceRecord is int {
+        if payload.continuousServiceRecord == CONTINUOUS_SERVICE_RECORD_CLEAR_SENTINEL {
             updates.push(`continuous_service_record = NULL`);
         } else {
             updates.push(`continuous_service_record = ${payload.continuousServiceRecord}`);
@@ -2221,6 +2382,61 @@ isolated function inactivateAdditionalManagerRelationshipsQuery(string managerEm
          eam.updated_on = CURRENT_TIMESTAMP(6)
      WHERE LOWER(eam.additional_manager_email) = LOWER(${managerEmail})
        AND eam.is_active = 1;`;
+
+# Fetch the leadership attribute IDs an employee currently holds.
+#
+# Retired attributes are left out: the edit form must not offer them back, and a save
+# validates every submitted ID against the active set.
+#
+# + employeeId - Employee business key
+# + return - Parameterized query returning active leadership_group_id values
+isolated function getEmployeeLeadershipIdsQuery(string employeeId) returns sql:ParameterizedQuery =>
+    `SELECT el.leadership_group_id AS leadershipGroupId
+     FROM employee_leadership el
+     JOIN employee e ON e.id = el.employee_pk_id
+     JOIN leadership_group lg ON lg.id = el.leadership_group_id
+     WHERE e.employee_id = ${employeeId} AND el.is_active = 1 AND lg.is_active = 1;`;
+
+# Deactivate the attributes an employee holds that are not in the desired set.
+#
+# Only active attributes are touched; see syncEmployeeLeadership for why a retired one is
+# kept.
+#
+# + employeeId - Employee business key
+# + groupIds - The complete desired set of attribute IDs
+# + actor - Email recorded in updated_by, and thus in the audit trail
+# + return - Parameterized update
+isolated function deactivateEmployeeLeadershipQuery(string employeeId, int[] groupIds, string actor)
+        returns sql:ParameterizedQuery {
+
+    sql:ParameterizedQuery query =
+        `UPDATE employee_leadership el
+         JOIN employee e ON e.id = el.employee_pk_id
+         JOIN leadership_group lg ON lg.id = el.leadership_group_id
+         SET el.is_active = 0, el.updated_by = ${actor}
+         WHERE e.employee_id = ${employeeId} AND el.is_active = 1 AND lg.is_active = 1`;
+    return groupIds.length() == 0
+        ? query
+        : sql:queryConcat(query, ` AND el.leadership_group_id NOT IN (`, buildIntInClause(groupIds), `)`);
+}
+
+# Assign an attribute, reviving a previously removed row rather than inserting a duplicate.
+#
+# The unique key (employee_pk_id, leadership_group_id) makes a plain INSERT fail for an
+# attribute the employee held before, so this upserts. The SELECT supplies employee_pk_id
+# from the business key.
+#
+# + employeeId - Employee business key
+# + groupId - Leadership attribute to assign
+# + actor - Email recorded in created_by/updated_by, and thus in the audit trail
+# + return - Parameterized upsert
+isolated function assignEmployeeLeadershipQuery(string employeeId, int groupId, string actor)
+        returns sql:ParameterizedQuery =>
+    `INSERT INTO employee_leadership
+        (employee_pk_id, leadership_group_id, is_active, created_by, updated_by)
+     SELECT e.id, ${groupId}, 1, ${actor}, ${actor}
+     FROM employee e WHERE e.employee_id = ${employeeId}
+     ON DUPLICATE KEY UPDATE is_active = 1, updated_by = ${actor};`;
 
 # Build query to fetch vehicles.
 #
@@ -2614,65 +2830,65 @@ isolated function getParkingReservationsByEmployeeQuery(string employeeEmail, st
 isolated function getEmployeeEmailToNameMapQuery() returns sql:ParameterizedQuery =>
     `SELECT work_email, CONCAT(first_name, ' ', last_name) AS full_name FROM employee;`;
 
-# Count active employees in a business unit.
+# Count active employees and new joiners in a business unit.
 #
 # + id - Business unit ID
-# + return - Query counting active employees with business_unit_id = id
+# + return - Query counting active employees and new joiners with business_unit_id = id
 isolated function countActiveEmployeesInBusinessUnitQuery(int id) returns sql:ParameterizedQuery =>
-    `SELECT COUNT(*) AS count FROM employee WHERE business_unit_id = ${id} AND employee_status = 'Active'`;
+    `SELECT COUNT(*) AS count FROM employee WHERE business_unit_id = ${id} AND employee_status IN ('Active', 'New joiner')`;
 
-# Count active employees in a business-unit–team mapping.
+# Count active employees and new joiners in a business-unit–team mapping.
 #
 # + id - business_unit_team mapping ID
-# + return - Query counting active employees matching that BU+Team combination
+# + return - Query counting active employees and new joiners matching that BU+Team combination
 isolated function countActiveEmployeesInBUTeamMappingQuery(int id) returns sql:ParameterizedQuery =>
     `SELECT COUNT(*) AS count FROM employee e
      JOIN business_unit_team but ON but.id = ${id}
-     WHERE e.business_unit_id = but.business_unit_id AND e.team_id = but.team_id AND e.employee_status = 'Active'`;
+     WHERE e.business_unit_id = but.business_unit_id AND e.team_id = but.team_id AND e.employee_status IN ('Active', 'New joiner')`;
 
-# Count active employees in a business-unit–team–sub-team mapping.
+# Count active employees and new joiners in a business-unit–team–sub-team mapping.
 #
 # + id - business_unit_team_sub_team mapping ID
-# + return - Query counting active employees matching that BU+Team+SubTeam combination
+# + return - Query counting active employees and new joiners matching that BU+Team+SubTeam combination
 isolated function countActiveEmployeesInBUTeamSubTeamMappingQuery(int id) returns sql:ParameterizedQuery =>
     `SELECT COUNT(*) AS count FROM employee e
      JOIN business_unit_team_sub_team butst ON butst.id = ${id}
      JOIN business_unit_team but ON but.id = butst.business_unit_team_id
      WHERE e.business_unit_id = but.business_unit_id AND e.team_id = but.team_id
-       AND e.sub_team_id = butst.sub_team_id AND e.employee_status = 'Active'`;
+       AND e.sub_team_id = butst.sub_team_id AND e.employee_status IN ('Active', 'New joiner')`;
 
-# Count active employees in a business-unit–team–sub-team–unit mapping.
+# Count active employees and new joiners in a business-unit–team–sub-team–unit mapping.
 #
 # + id - business_unit_team_sub_team_unit mapping ID
-# + return - Query counting active employees matching that BU+Team+SubTeam+Unit combination
+# + return - Query counting active employees and new joiners matching that BU+Team+SubTeam+Unit combination
 isolated function countActiveEmployeesInBUTeamSubTeamUnitMappingQuery(int id) returns sql:ParameterizedQuery =>
     `SELECT COUNT(*) AS count FROM employee e
      JOIN business_unit_team_sub_team_unit butstu ON butstu.id = ${id}
      JOIN business_unit_team_sub_team butst ON butst.id = butstu.business_unit_team_sub_team_id
      JOIN business_unit_team but ON but.id = butst.business_unit_team_id
      WHERE e.business_unit_id = but.business_unit_id AND e.team_id = but.team_id
-       AND e.sub_team_id = butst.sub_team_id AND e.unit_id = butstu.unit_id AND e.employee_status = 'Active'`;
+       AND e.sub_team_id = butst.sub_team_id AND e.unit_id = butstu.unit_id AND e.employee_status IN ('Active', 'New joiner')`;
 
-# Count active employees in a team.
+# Count active employees and new joiners in a team.
 #
 # + id - Team ID
-# + return - Query counting active employees with team_id = id
+# + return - Query counting active employees and new joiners with team_id = id
 isolated function countActiveEmployeesInTeamQuery(int id) returns sql:ParameterizedQuery =>
-    `SELECT COUNT(*) AS count FROM employee WHERE team_id = ${id} AND employee_status = 'Active'`;
+    `SELECT COUNT(*) AS count FROM employee WHERE team_id = ${id} AND employee_status IN ('Active', 'New joiner')`;
 
-# Count active employees in a sub-team.
+# Count active employees and new joiners in a sub-team.
 #
 # + id - Sub-team ID
-# + return - Query counting active employees with sub_team_id = id
+# + return - Query counting active employees and new joiners with sub_team_id = id
 isolated function countActiveEmployeesInSubTeamQuery(int id) returns sql:ParameterizedQuery =>
-    `SELECT COUNT(*) AS count FROM employee WHERE sub_team_id = ${id} AND employee_status = 'Active'`;
+    `SELECT COUNT(*) AS count FROM employee WHERE sub_team_id = ${id} AND employee_status IN ('Active', 'New joiner')`;
 
-# Count active employees in a unit.
+# Count active employees and new joiners in a unit.
 #
 # + id - Unit ID
-# + return - Query counting active employees with unit_id = id
+# + return - Query counting active employees and new joiners with unit_id = id
 isolated function countActiveEmployeesInUnitQuery(int id) returns sql:ParameterizedQuery =>
-    `SELECT COUNT(*) AS count FROM employee WHERE unit_id = ${id} AND employee_status = 'Active'`;
+    `SELECT COUNT(*) AS count FROM employee WHERE unit_id = ${id} AND employee_status IN ('Active', 'New joiner')`;
 
 # Delete an employee record.
 #
@@ -2701,6 +2917,13 @@ isolated function deleteEmployeeAuditQuery(int employeePkId) returns sql:Paramet
 # + return - Parameterized query to delete additional managers audit rows
 isolated function deleteEmployeeAdditionalManagersAuditQuery(int employeePkId) returns sql:ParameterizedQuery =>
     `DELETE FROM employee_additional_managers_audit WHERE employee_pk_id = ${employeePkId};`;
+
+# Delete leadership attribute audit rows for an employee.
+#
+# + employeePkId - Primary key of the employee row
+# + return - Parameterized query to delete leadership attribute audit rows
+isolated function deleteEmployeeLeadershipAuditQuery(int employeePkId) returns sql:ParameterizedQuery =>
+    `DELETE FROM employee_leadership_audit WHERE employee_pk_id = ${employeePkId};`;
 
 # Delete emergency contacts audit rows for a personal info record.
 #
@@ -2829,6 +3052,29 @@ isolated function getEmployeeAdditionalManagersAuditSnapshotsQuery(int[] employe
     );
 }
 
+# Fetch audit snapshots from the employee_leadership_audit table for a set of employee rows.
+#
+# + employeePkIds - Employee table primary keys belonging to the person
+# + return - Parameterized query returning employee_leadership_audit rows tagged with their source table
+isolated function getEmployeeLeadershipAuditSnapshotsQuery(int[] employeePkIds)
+    returns sql:ParameterizedQuery {
+    sql:ParameterizedQuery inClause = buildIntInClause(employeePkIds);
+    return sql:queryConcat(
+            `SELECT
+                employee_pk_id AS employeePkId,
+                'employee_leadership_audit' AS sourceTable,
+                action_type AS actionType,
+                action_by AS actionBy,
+                action_on AS actionOn,
+                data AS data
+            FROM employee_leadership_audit
+            WHERE employee_pk_id IN (`,
+            inClause,
+            `)
+            ORDER BY action_on ASC`
+    );
+}
+
 # Fetch audit snapshots from the resignation_audit table for a set of employee rows.
 #
 # resignation keys on employee_id, so its audit keys on employee_pk_id exactly as employee_audit does
@@ -2910,7 +3156,9 @@ isolated function getHistoryLookupNamesQuery() returns sql:ParameterizedQuery =>
      UNION ALL SELECT 'office_id' COLLATE utf8mb4_general_ci,
             id, name COLLATE utf8mb4_general_ci FROM office
      UNION ALL SELECT 'house_id' COLLATE utf8mb4_general_ci,
-            id, name COLLATE utf8mb4_general_ci FROM house`;
+            id, name COLLATE utf8mb4_general_ci FROM house
+     UNION ALL SELECT 'leadership_group' COLLATE utf8mb4_general_ci,
+            id, name COLLATE utf8mb4_general_ci FROM leadership_group`;
 
 # Whether an employee ID names the person's current (most recent) employment.
 #
@@ -3058,5 +3306,21 @@ isolated function getPreviousHouseIdQuery(string workEmail) returns sql:Paramete
      FROM employee e
      LEFT JOIN house h ON h.id = e.house_id AND h.is_active = 1
      WHERE e.work_email = ${workEmail}
+     ORDER BY e.start_date DESC, e.id DESC
+     LIMIT 1`;
+
+# Fetch the house from the most recent employment of the person behind a NIC/Passport.
+#
+# The same rules as getPreviousHouseIdQuery, matched on the person rather than the work email,
+# so a returning employee is recognised even when their email has changed or is a placeholder.
+#
+# + nicOrPassport - NIC/Passport of the employee being onboarded
+# + return - Parameterized query returning the previous house id, if there is one
+isolated function getPreviousHouseIdByNicQuery(string nicOrPassport) returns sql:ParameterizedQuery =>
+    `SELECT h.id AS houseId
+     FROM employee e
+     INNER JOIN personal_info p ON p.id = e.personal_info_id
+     LEFT JOIN house h ON h.id = e.house_id AND h.is_active = 1
+     WHERE p.nic_or_passport = ${nicOrPassport}
      ORDER BY e.start_date DESC, e.id DESC
      LIMIT 1`;

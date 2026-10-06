@@ -489,7 +489,9 @@ export const getEmployeeStatusChipStyles =
         ? theme.palette.success.main
         : normalized === "marked leaver"
           ? theme.palette.warning.main
-          : theme.palette.error.main;
+          : normalized === "new joiner"
+            ? theme.palette.info.main
+            : theme.palette.error.main;
 
     return {
       borderRadius: 999,
@@ -533,6 +535,14 @@ const emergencyContactItemSchema = object().shape({
     ),
 });
 
+/**
+ * Employee profile page: the signed-in user's own profile at `/`, or another employee's at
+ * `/employees/:employeeId`.
+ *
+ * @param employeeId Employee to show; defaults to the signed-in user
+ * @param readOnly Set when an admin views someone else's profile, which renders the
+ * personal-info form read-only and offers inline section editing instead
+ */
 export default function Me({
   employeeId,
   readOnly = false,
@@ -649,7 +659,10 @@ export default function Me({
     employee?.continuousServiceDate ?? employee?.startDate ?? null;
 
   const serviceLength = serviceStartDate
-    ? calculateServiceLength(serviceStartDate)
+    ? calculateServiceLength(
+        serviceStartDate,
+        employee?.finalDayOfEmployment ?? null,
+      )
     : null;
 
   const serviceText = formatServiceLength(serviceLength);
@@ -1372,6 +1385,46 @@ export default function Me({
                         }
                         onViewAll={openFullHistory}
                       />
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={6}>
+                      <FieldLabel
+                        label="Leadership Attributes"
+                        historyField={
+                          canViewFieldHistory
+                            ? AUDIT_FIELDS.leadershipGroup
+                            : undefined
+                        }
+                        onViewAll={openFullHistory}
+                      />
+                      {(() => {
+                        // Comma-joined by the backend's GROUP_CONCAT, not a real
+                        // array — split before rendering, matching how
+                        // additionalManagerEmails is handled elsewhere in this file.
+                        const leadershipGroupNames = (
+                          employee.leadershipGroups ?? ""
+                        )
+                          .split(",")
+                          .map((name) => name.trim())
+                          .filter((name) => name);
+                        return leadershipGroupNames.length > 0 ? (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 0.875,
+                              mt: 1,
+                            }}
+                          >
+                            {leadershipGroupNames.map((name) => (
+                              <Chip key={name} label={name} size="small" />
+                            ))}
+                          </Box>
+                        ) : (
+                          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                            -
+                          </Typography>
+                        );
+                      })()}
                     </Grid>
                   </Grid>
                   <Grid container rowSpacing={1.5} columnSpacing={3} mt={0.5}>

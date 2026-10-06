@@ -55,6 +55,7 @@ export const AppConfig = {
     managers: SERVICE_BASE_URL + "/employees/managers",
     continuousServiceRecord: SERVICE_BASE_URL + "/continuous-service-records",
     validateEpf: SERVICE_BASE_URL + "/employees/validate-epf",
+    returningEmployee: SERVICE_BASE_URL + "/employees/returning-employee",
     employee: (employeeId: string) =>
       SERVICE_BASE_URL + `/employees/${employeeId}`,
     employeePersonalInfo: (employeeId: string) =>
@@ -80,6 +81,9 @@ export const AppConfig = {
     careerFunction: (id: number) => SERVICE_BASE_URL + `/career-functions/${id}`,
     designations: SERVICE_BASE_URL + "/designations",
     designation: (id: number) => SERVICE_BASE_URL + `/designations/${id}`,
+    leadershipGroups: SERVICE_BASE_URL + "/leadership-groups",
+    leadershipGroup: (id: number) =>
+      SERVICE_BASE_URL + `/leadership-groups/${id}`,
     companies: SERVICE_BASE_URL + "/companies",
     employmentTypes: SERVICE_BASE_URL + "/employment-types",
     teams: SERVICE_BASE_URL + "/teams",

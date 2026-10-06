@@ -14,7 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { EmergencyContact, EmployeeStatus, State } from "@/types/types";
+import {
+  CURRENT_EMPLOYEE_STATUSES,
+  EmergencyContact,
+  EmployeeStatus,
+  isCurrentEmployeeStatusSet,
+  State,
+} from "@/types/types";
 import { AppConfig } from "@config/config";
 import {
   DEFAULT_LIMIT_VALUE,
@@ -43,6 +49,8 @@ export interface Employee {
   managerName: string | null;
   additionalManagerEmails: string | null;
   gender: string | null;
+  /** employee.id of the prior employment this record continues from, if linked. */
+  continuousServiceRecord: number | null;
   continuousServiceDate: string | null;
   jobBand: number | null;
   employeeStatus: EmployeeStatus;
@@ -72,6 +80,11 @@ export interface Employee {
   unitId: number | null;
   house: string | null;
   houseId: number | null;
+  // Filled in only by the single-employee GET; list and search responses leave it null.
+  leadershipGroupIds: number[] | null;
+  // Comma-joined by the backend's GROUP_CONCAT, matching the existing
+  // additionalManagerEmails precedent below — not a real array.
+  leadershipGroups: string | null;
 }
 
 export interface EmployeeBasicInfo {
@@ -177,6 +190,8 @@ export type Filters = {
   /** Matches employees whose start date is exactly this day (YYYY-MM-DD). */
   startDate?: string;
   includeMarkedLeavers?: boolean;
+  /** Leadership attribute IDs. Matches employees holding ALL selected attributes (AND). */
+  leadershipGroupIds?: number[];
 };
 
 export type Pagination = {
@@ -205,7 +220,8 @@ export type CreateEmployeePayload = {
   jobRole?: string | null;
   externalDesignation?: string | null;
   workLocation: string;
-  workEmail: string;
+  /** Left out when the account is not created yet; the backend stores a placeholder. */
+  workEmail?: string;
   startDate: string;
   managerEmail: string;
   additionalManagerEmails?: string[];
@@ -223,7 +239,8 @@ export type CreateEmployeePayload = {
   businessUnitId: number;
   unitId?: number;
   houseId?: number;
-  continuousServiceRecord?: string | null;
+  // employee.id of the prior employment, as returned in ContinuousServiceRecordInfo.id
+  continuousServiceRecord?: number | null;
   personalInfo: CreatePersonalInfoPayload;
 };
 
@@ -255,19 +272,24 @@ export type UpdateEmployeeJobInfoPayload = {
   businessUnitId?: number | null;
   unitId?: number | null;
   houseId?: number | null;
-  continuousServiceRecord?: string | null;
+  // employee.id of the prior employment; -1 (the backend's clear sentinel) clears it
+  continuousServiceRecord?: number | null;
   employeeStatus?: EmployeeStatus | null;
   finalDayInOffice?: string | null;
   finalDayOfEmployment?: string | null;
   resignationReason?: string | null;
+  leadershipGroupIds?: number[];
 };
 
 export interface ContinuousServiceRecordInfo {
+  id: number;
   employeeId: string;
   firstName: string | null;
   lastName: string | null;
   workLocation: string;
   startDate: string;
+  /** Only a Left employment can be carried over as continuous service. */
+  employeeStatus: string;
   managerEmail: string;
   additionalManagerEmails?: string | null;
   designation: string;
@@ -294,6 +316,12 @@ interface EmployeesState {
   employeesBasicInfo: EmployeeDirectoryInfo[];
   filteredEmployeesResponse: FilteredEmployeesResponse;
   continuousServiceRecord: ContinuousServiceRecordInfo[];
+  /**
+   * Work email the continuousServiceRecord list was fetched for, once it has loaded.
+   * A form only reconciles its link against the list when this matches its own email,
+   * so a list left over from another page can never clear a link.
+   */
+  continuousServiceRecordEmail: string | null;
   updateJobInfoState: State;
   updateJobInfoMessage: string | null;
   totalActiveEmployeeCount: number | null;
@@ -308,7 +336,7 @@ const initialState: EmployeesState = {
   managersState: State.idle,
   employeeFilter: {
     filters: {
-      employeeStatuses: [EmployeeStatus.Active, EmployeeStatus.MarkedLeaver],
+      employeeStatuses: [...CURRENT_EMPLOYEE_STATUSES],
       excludeFutureStartDate: true,
     },
     pagination: {
@@ -331,6 +359,7 @@ const initialState: EmployeesState = {
     totalCount: 0,
   },
   continuousServiceRecord: [],
+  continuousServiceRecordEmail: null,
   updateJobInfoState: State.idle,
   updateJobInfoMessage: null,
   totalActiveEmployeeCount: null,
@@ -652,6 +681,9 @@ export const downloadEmployeeReportByStatus = createAsyncThunk(
   },
 );
 
+/** Sent as continuousServiceRecord on a job-info update to remove an existing link. */
+export const CONTINUOUS_SERVICE_RECORD_CLEAR_SENTINEL = -1;
+
 export const fetchContinuousServiceRecord = createAsyncThunk(
   "employees/fetchContinuousServiceRecord",
   async (workEmail: string, { dispatch, rejectWithValue }) => {
@@ -699,6 +731,55 @@ export const validateEpf = createAsyncThunk(
         status === HttpStatusCode.InternalServerError
           ? "Error validating EPF"
           : error.response?.data?.message || "Failed to validate EPF";
+
+      dispatch(
+        enqueueSnackbarMessage({
+          message: errorMessage,
+          type: "error",
+        }),
+      );
+
+      return rejectWithValue(errorMessage);
+    }
+  },
+);
+
+/** An employment found when recognising who is being onboarded. */
+export interface EmploymentMatch {
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  workEmail: string;
+  employeeStatus: string;
+}
+
+/** Who the onboarding form is dealing with, as far as the NIC/Passport tells. */
+export interface ReturningEmployeeLookup {
+  /** The person's latest employment; null for someone new. */
+  latestEmployment: EmploymentMatch | null;
+  /** Employed now or already onboarded (Active or New joiner). */
+  isCurrentEmployee: boolean;
+  /** Their latest real work email; null when their records hold only placeholders. */
+  formerWorkEmail: string | null;
+}
+
+export const lookupReturningEmployee = createAsyncThunk(
+  "employees/lookupReturningEmployee",
+  async (nicOrPassport: string, { dispatch, rejectWithValue }) => {
+    try {
+      // POST with a body rather than a query string, so the NIC stays out of URLs and logs.
+      const resp = await APIService.getInstance().post(
+        AppConfig.serviceUrls.returningEmployee,
+        { nicOrPassport },
+      );
+      return resp.data as ReturningEmployeeLookup;
+    } catch (error: any) {
+      if (isCancel(error)) return rejectWithValue("cancelled");
+      const status = error.response?.status;
+      const errorMessage =
+        status === HttpStatusCode.InternalServerError
+          ? "Error looking up returning employee"
+          : error.response?.data?.message || "Failed to look up returning employee";
 
       dispatch(
         enqueueSnackbarMessage({
@@ -770,6 +851,7 @@ const EmployeeSlice = createSlice({
     },
     resetContinuousService(state) {
       state.continuousServiceRecord = [];
+      state.continuousServiceRecordEmail = null;
       state.state = State.idle;
       state.stateMessage = null;
       state.errorMessage = null;
@@ -830,14 +912,12 @@ const EmployeeSlice = createSlice({
         state.stateMessage = "Filtered employees fetched successfully";
         state.errorMessage = null;
         const { searchString, filters } = action.meta.arg;
-        // Capture the baseline count on the default query (Active + Marked leaver, no other filters).
+        // Capture the baseline count on the default query (current employees, no other filters).
         const statuses = filters.employeeStatuses ?? [];
         const isBaselineQuery =
           !searchString &&
           filters.excludeFutureStartDate === true &&
-          statuses.length === 2 &&
-          statuses.includes(EmployeeStatus.Active) &&
-          statuses.includes(EmployeeStatus.MarkedLeaver) &&
+          isCurrentEmployeeStatusSet(statuses) &&
           Object.entries(filters).every(([key, value]) => {
             return key === "employeeStatuses" || key === "excludeFutureStartDate" || value === undefined;
           });
@@ -898,6 +978,7 @@ const EmployeeSlice = createSlice({
         state.errorMessage = action.payload as string;
       })
       .addCase(fetchContinuousServiceRecord.pending, (state) => {
+        state.continuousServiceRecordEmail = null;
         state.state = State.loading;
         state.stateMessage = "Fetching continuous service record...";
         state.errorMessage = null;
@@ -906,6 +987,7 @@ const EmployeeSlice = createSlice({
         state.state = State.success;
         state.stateMessage = "Successfully fetched continuous service record!";
         state.continuousServiceRecord = action.payload;
+        state.continuousServiceRecordEmail = action.meta.arg;
         state.errorMessage = null;
       })
       .addCase(fetchContinuousServiceRecord.rejected, (state, action) => {

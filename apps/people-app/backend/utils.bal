@@ -170,6 +170,189 @@ isolated function rollbackEmployeeCreation(string employeeId, string workEmail) 
     }
 }
 
+# Validate a continuous service record link before it is written.
+#
+# The link stores the prior employment's `employee.id`. Only a record the
+# continuous-service-records endpoint would offer for this work email is accepted, and only
+# one that has ended or is ending (Left or Marked leaver) and started before this employment;
+# anything else, including an unrelated person's record, this employment itself, or a later record that would link
+# forwards or form a cycle, is refused as a bad request instead of reaching the database.
+#
+# + linkedId - `employee.id` of the prior employment being linked
+# + workEmail - Work email the employment will hold once the request is applied
+# + startDate - Start date (YYYY-MM-DD) the employment will hold once the request is applied
+# + employeeId - Employee ID of the employment being updated, or () when creating one
+# + return - A BadRequest or InternalServerError response when the link is refused, else ()
+isolated function validateContinuousServiceRecord(int linkedId, string workEmail, string startDate,
+        string? employeeId = ()) returns http:BadRequest|http:InternalServerError? {
+
+    database:ContinuousServiceRecordInfo[]|error priorRecords =
+        database:getContinuousServiceRecordsByEmail(workEmail);
+    if priorRecords is error {
+        log:printError("Error occurred while validating the continuous service record", priorRecords,
+                linkedId = linkedId, workEmail = workEmail);
+        return <http:InternalServerError>{
+            body: {
+                message: "Error occurred while validating the continuous service record"
+            }
+        };
+    }
+
+    foreach database:ContinuousServiceRecordInfo priorRecord in priorRecords {
+        if priorRecord.id == linkedId && database:isEligiblePriorEmployment(priorRecord, startDate, employeeId) {
+            return;
+        }
+    }
+
+    log:printWarn("Continuous service record is not an eligible prior employment",
+            linkedId = linkedId, workEmail = workEmail, startDate = startDate, employeeId = employeeId);
+    return <http:BadRequest>{
+        body: {
+            message: "Continuous service record must be an earlier employment under the same work email "
+                + "that has ended or is ending (status Left or Marked leaver)"
+        }
+    };
+}
+
+# Validate who is being onboarded, before anything is written.
+#
+# The NIC/Passport decides whether this is someone new, a rehire, or someone already
+# employed (see database:checkReturningEmployee). A work email that is given must not belong
+# to an Active or New joiner employee. A former employee's or a Marked leaver's email is fine:
+# that is how someone returning, or relocating under a different NIC, keeps their email, house
+# and continuous service.
+#
+# + nicOrPassport - NIC/Passport from the submission
+# + workEmail - Work email from the submission, nil when left empty
+# + return - The BadRequest or InternalServerError to send, or nil when onboarding may go ahead
+isolated function validateOnboardingIdentity(string nicOrPassport, string? workEmail)
+        returns http:BadRequest|http:InternalServerError? {
+
+    database:EmploymentMatch[]|error employments = database:getEmploymentsByNic(nicOrPassport);
+    if employments is error {
+        log:printError("Error occurred while checking existing employee personal information", employments,
+                nicOrPassport = nicOrPassport);
+        return <http:InternalServerError>{body: {message: ERROR_EMPLOYEE_CREATION_FAILED}};
+    }
+    string? refusal = database:checkReturningEmployee(employments, workEmail);
+    if refusal is string {
+        log:printWarn(refusal, nicOrPassport = nicOrPassport, workEmail = workEmail);
+        return <http:BadRequest>{body: {message: refusal}};
+    }
+
+    if workEmail is () {
+        return;
+    }
+    database:EmploymentMatch|error? holder = database:getCurrentEmployeeByWorkEmail(workEmail);
+    if holder is error {
+        log:printError("Error occurred while checking whether the work email is in use", holder,
+                workEmail = workEmail);
+        return <http:InternalServerError>{body: {message: ERROR_EMPLOYEE_CREATION_FAILED}};
+    }
+    if holder is database:EmploymentMatch {
+        string customErr = string `Work email ${workEmail} is already in use by ${holder.firstName} `
+            + string `${holder.lastName} (${holder.employeeId})`;
+        log:printWarn(customErr, workEmail = workEmail, holderEmployeeId = holder.employeeId);
+        return <http:BadRequest>{body: {message: customErr}};
+    }
+}
+
+# Validate that an edit does not leave the same person with two current employments.
+#
+# After a relocation the old employment is Marked leaver and the new one Active or New joiner.
+# Setting the old one back to Active, or giving an employee a work email another current
+# employee holds, would leave two current records for the same person or address. See
+# database:identityChecksForEdit for when each check applies.
+#
+# + employeeInfo - The employee as stored, before the edit
+# + requestedStatus - Status the edit sets, nil when it leaves the status alone
+# + requestedEmail - Work email the edit sets, nil when it leaves the email alone
+# + return - The BadRequest or InternalServerError to send, or nil when the edit may go ahead
+isolated function validateEditIdentity(database:Employee employeeInfo, string? requestedStatus,
+        string? requestedEmail) returns http:BadRequest|http:InternalServerError? {
+
+    string employeeId = employeeInfo.employeeId;
+    var checks = database:identityChecksForEdit(employeeInfo.employeeStatus, requestedStatus,
+            employeeInfo.workEmail, requestedEmail);
+
+    string workEmail = requestedEmail ?: employeeInfo.workEmail;
+    if checks.email && !database:isPlaceholderWorkEmail(workEmail) {
+        database:EmploymentMatch|error? holder = database:getCurrentEmployeeByWorkEmail(workEmail, employeeId);
+        if holder is error {
+            log:printError("Error occurred while checking whether the work email is in use", holder,
+                    employeeId = employeeId, workEmail = workEmail);
+            return <http:InternalServerError>{body: {message: ERROR_EMPLOYEE_INFO_UPDATE_FAILED}};
+        }
+        if holder is database:EmploymentMatch {
+            string customErr = string `Work email ${workEmail} is already in use by ${holder.firstName} `
+                + string `${holder.lastName} (${holder.employeeId})`;
+            log:printWarn(customErr, employeeId = employeeId, holderEmployeeId = holder.employeeId);
+            return <http:BadRequest>{body: {message: customErr}};
+        }
+    }
+
+    if !checks.nic {
+        return;
+    }
+    // The single-employee lookup does not load the NIC/Passport, so it is read here.
+    database:EmployeePersonalInfo|error? personalInfo = database:getEmployeePersonalInfo(employeeId);
+    if personalInfo is error {
+        log:printError("Error occurred while fetching the employee's NIC/Passport", personalInfo,
+                employeeId = employeeId);
+        return <http:InternalServerError>{body: {message: ERROR_EMPLOYEE_INFO_UPDATE_FAILED}};
+    }
+    string nicOrPassport = personalInfo is () ? "" : personalInfo.nicOrPassport.trim();
+    if nicOrPassport != "" {
+        database:EmploymentMatch[]|error employments = database:getEmploymentsByNic(nicOrPassport);
+        if employments is error {
+            log:printError("Error occurred while checking the employee's other employments", employments,
+                    employeeId = employeeId);
+            return <http:InternalServerError>{body: {message: ERROR_EMPLOYEE_INFO_UPDATE_FAILED}};
+        }
+        database:EmploymentMatch? other = database:otherCurrentEmployment(employments, employeeId);
+        if other is database:EmploymentMatch {
+            string customErr = string `This NIC/Passport already has a current employment: ${other.firstName} `
+                + string `${other.lastName} (${other.employeeId}, ${other.employeeStatus})`;
+            log:printWarn(customErr, employeeId = employeeId, otherEmployeeId = other.employeeId);
+            return <http:BadRequest>{body: {message: customErr}};
+        }
+    }
+}
+
+# Validate the leadership attributes submitted for an employee.
+#
+# Every id must be an active attribute; an unknown or inactive one rejects the whole update
+# rather than applying it partially. Duplicates are tolerated and removed.
+#
+# + requested - Attribute ids from the request
+# + employeeId - Employee ID the attributes are being set on, for the log
+# + return - The de-duplicated ids, or the BadRequest or InternalServerError response to send
+isolated function validateLeadershipGroupIds(int[] requested, string employeeId)
+        returns int[]|http:BadRequest|http:InternalServerError {
+
+    database:LeadershipGroup[]|error active = database:getLeadershipGroups();
+    if active is error {
+        log:printError("Error validating leadership attributes", active, employeeId = employeeId);
+        return <http:InternalServerError>{body: {message: "Error updating employee"}};
+    }
+    int[] activeIds = from database:LeadershipGroup g in active select g.id;
+
+    int[] deduped = [];
+    foreach int id in requested {
+        if activeIds.indexOf(id) == () {
+            log:printWarn("Unknown or inactive leadership attribute", employeeId = employeeId,
+                    leadershipGroupId = id);
+            return <http:BadRequest>{
+                body: {message: string `Unknown or inactive leadership attribute: ${id}`}
+            };
+        }
+        if deduped.indexOf(id) == () {
+            deduped.push(id);
+        }
+    }
+    return deduped;
+}
+
 # Validates that a date string is a valid calendar date in the format YYYY-MM-DD.
 #
 # + date - Date string to validate (expected format YYYY-MM-DD)
@@ -255,10 +438,17 @@ isolated function validateBulkRow(int rowNumber, BulkEmployeeCsvRow row, BulkRef
     if row.lastName.trim().length() == 0 {
         errors.push({row: rowNumber, 'field: CSV_FIELD_LAST_NAME, message: "Last name is required"});
     }
-    if row.workEmail.trim().length() == 0 {
-        errors.push({row: rowNumber, 'field: CSV_FIELD_WORK_EMAIL, message: "Work email is required"});
-    } else if !database:EMAIL_PATTERN.isFullMatch(row.workEmail.trim()) {
+    // An empty work email is a joiner whose account does not exist yet; FUTURE_JOINER_EMAIL is
+    // stored for them. A placeholder typed in is refused, as in single onboarding.
+    string workEmail = row.workEmail.trim();
+    if workEmail.length() > 0 && !database:EMAIL_PATTERN.isFullMatch(workEmail) {
         errors.push({row: rowNumber, 'field: CSV_FIELD_WORK_EMAIL, message: "Invalid work email format"});
+    } else if database:isPlaceholderWorkEmail(workEmail) {
+        errors.push({
+            row: rowNumber,
+            'field: CSV_FIELD_WORK_EMAIL,
+            message: "Leave the work email empty when the employee's account is not created yet"
+        });
     }
     if row.managerEmail.trim().length() == 0 {
         errors.push({row: rowNumber, 'field: CSV_FIELD_MANAGER_EMAIL, message: "Manager email is required"});
@@ -449,8 +639,9 @@ isolated function buildBulkEmployeePayload(BulkEmployeeCsvRow row, BulkRefData r
         epf: row.epf.trim().length() > 0 ? row.epf.trim() : (),
         companyId: refData.companyIds[normalizeKey(row.company)] ?: 0,
         workLocation: row.workLocation.trim(),
-        workEmail: row.workEmail.trim(),
+        workEmail: row.workEmail.trim().length() > 0 ? row.workEmail.trim() : (),
         startDate: row.startDate.trim(),
+        employeeStatus: database:initialEmployeeStatus(row.startDate.trim(), todayUtc()),
         managerEmail: row.managerEmail.trim(),
         secondaryJobTitle: row.secondaryJobTitle.trim().length() > 0 ? row.secondaryJobTitle.trim() : (),
         employmentTypeId: refData.employmentTypeIds[normalizeKey(row.employmentType)] ?: 0,
@@ -929,6 +1120,12 @@ isolated function isFutureDate(string date) returns boolean {
     string tomorrowDate = time:utcToString(tomorrow).substring(0, 10);
     return date >= tomorrowDate;
 }
+
+# Today's date in UTC, the same reckoning of today the scheduler uses.
+#
+# + return - Today's date in YYYY-MM-DD form
+isolated function todayUtc() returns string =>
+    time:utcToString(time:utcNow()).substring(0, 10);
 
 # Translate a job-info payload into the columns a scheduled change writes.
 #
