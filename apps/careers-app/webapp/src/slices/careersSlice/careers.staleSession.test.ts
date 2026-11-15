@@ -170,4 +170,20 @@ describe("requests that finish after the candidate's data is cleared", () => {
     expect(store.getState().careers.profileState).toBe(State.failed);
     expect(store.getState().careers.sessionExpired).toBe(true);
   });
+
+  it("keeps the applications on screen when a reload of them fails, and marks the load failed when there are none", async () => {
+    vi.mocked(api.fetchApplications).mockResolvedValueOnce([previousApplication]);
+    const store = newStore();
+    await store.dispatch(loadApplications("token"));
+
+    vi.mocked(api.fetchApplications).mockRejectedValueOnce(new Error("network"));
+    await store.dispatch(loadApplications("token"));
+    expect(store.getState().careers.applications).toEqual([previousApplication]);
+    expect(store.getState().careers.applicationsState).toBe(State.success);
+
+    const empty = newStore();
+    vi.mocked(api.fetchApplications).mockRejectedValueOnce(new Error("network"));
+    await empty.dispatch(loadApplications("token"));
+    expect(empty.getState().careers.applicationsState).toBe(State.failed);
+  });
 });
