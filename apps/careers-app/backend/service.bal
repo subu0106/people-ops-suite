@@ -166,6 +166,36 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
         return <http:BadGateway>{body: {message: "Failed to record your answer"}};
     }
 
+    # The summary of the offer of one of the signed-in candidate's own applications, read from the ATS.
+    resource function get applications/[string applicationId]/offer(http:RequestContext ctx)
+            returns json|http:Unauthorized|http:Forbidden|http:NotFound|http:BadGateway|http:GatewayTimeout {
+        string requestId = types:requestIdOf(ctx);
+        if !types:isValidNumericId(applicationId) {
+            return <http:NotFound>{body: {message: "Application not found"}};
+        }
+        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout caller =
+            callerOf(ctx, requestId);
+        if caller !is jwt:CallerDetails {
+            return caller;
+        }
+        http:Response|error resp = vacancy:getOfferSummary(caller.email, applicationId, requestId);
+        if resp is error {
+            return candidateFailure(resp, "Failed to load your offer", requestId);
+        }
+        if resp.statusCode == http:STATUS_OK {
+            json|error summary = resp.getJsonPayload();
+            if summary is json {
+                return summary;
+            }
+        }
+        if resp.statusCode == http:STATUS_NOT_FOUND {
+            return <http:NotFound>{body: {message: "There is no offer to show for this application."}};
+        }
+        log:printWarn("The offer summary was not loaded", status = resp.statusCode, applicationId = applicationId,
+            requestId = requestId);
+        return <http:BadGateway>{body: {message: "Failed to load your offer"}};
+    }
+
     # Whether the signed-in candidate has submitted the documents for one of their own accepted offers, whether they
     # can still change them and until when, and, when they have submitted, what they saved.
     resource function get applications/[string applicationId]/documents(http:RequestContext ctx)
