@@ -44,7 +44,7 @@ import {
   upcomingInterviewOf,
 } from "@view/applications/applicationHelpers";
 import InterviewsSection from "@view/applications/components/InterviewsSection";
-import OfferActions from "@view/applications/components/OfferActions";
+import OfferActions, { OfferSummaryButton } from "@view/applications/components/OfferActions";
 import ProgressHistory from "@view/applications/components/ProgressHistory";
 
 interface ApplicationDetailsProps {
@@ -171,6 +171,8 @@ const ApplicationDetails = ({
               </Typography>
             </Callout>
             <OfferActions
+              applicationId={application.id}
+              jobTitle={application.jobTitle}
               canAccept={canAcceptOffer}
               onAccept={onAcceptOffer}
               onDecline={onDeclineOffer}
@@ -194,6 +196,9 @@ const ApplicationDetails = ({
             <Typography fontWeight={700} fontSize="0.95rem" color="text.primary">
               You accepted this offer.
             </Typography>
+            <Box sx={{ my: 1.5 }}>
+              <OfferSummaryButton applicationId={application.id} jobTitle={application.jobTitle} />
+            </Box>
             {!DOCUMENTS_SUBMISSION_ENABLED ? (
               <Typography fontSize="0.9rem" color="text.primary">
                 The hiring team will contact you with the next steps.
