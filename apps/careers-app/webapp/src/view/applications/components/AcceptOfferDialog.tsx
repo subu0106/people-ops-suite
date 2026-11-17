@@ -14,42 +14,97 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Button, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, Typography } from "@wso2/oxygen-ui";
 import { Award } from "@wso2/oxygen-ui-icons-react";
+import { useEffect, useState } from "react";
 
 import StatusDialog from "@component/common/StatusDialog";
+import { useAppAuthContext } from "@context/AuthContext";
+import { fetchOfferSummary } from "@utils/profileService";
 import { pillButtonSx } from "@utils/styles";
+import { SelectInput } from "@view/documents/FormInputs";
+
+const SALARY_OPTIONS = ["Option 1", "Option 2"];
 
 interface AcceptOfferDialogProps {
+  applicationId: string;
   jobTitle: string;
   sending: boolean;
-  onConfirm: () => void;
+  onConfirm: (salaryOption?: "1" | "2") => void;
   onClose: () => void;
 }
 
-// Asks the candidate to confirm accepting an offer, since the answer cannot be changed here afterwards.
-const AcceptOfferDialog = ({ jobTitle, sending, onConfirm, onClose }: AcceptOfferDialogProps) => (
-  <StatusDialog
-    open
-    onClose={sending ? () => undefined : onClose}
-    tone="brand"
-    icon={<Award size={32} />}
-    title="Accept this offer?"
-    actions={
-      <>
-        <Button onClick={onClose} disabled={sending} sx={{ fontWeight: 600 }}>
-          Cancel
-        </Button>
-        <Button variant="contained" onClick={onConfirm} disabled={sending} sx={{ ...pillButtonSx, px: 3 }}>
-          {sending ? "Accepting..." : "Yes, accept"}
-        </Button>
-      </>
-    }
-  >
-    <Typography fontSize="0.95rem" color="text.primary">
-      You are about to accept the offer for {jobTitle}. You will not be able to change this answer here afterwards.
-    </Typography>
-  </StatusDialog>
-);
+// Asks the candidate to confirm accepting an offer, since the answer cannot be changed here afterwards. An offer with
+// salary options also asks which option is accepted.
+const AcceptOfferDialog = ({ applicationId, jobTitle, sending, onConfirm, onClose }: AcceptOfferDialogProps) => {
+  const { getToken } = useAppAuthContext();
+  // Undefined while the offer is checked, true when a salary option must be chosen, and null when the check failed.
+  const [hasOptions, setHasOptions] = useState<boolean | null | undefined>(undefined);
+  const [option, setOption] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    getToken()
+      .then((token) => fetchOfferSummary(token, applicationId))
+      .then((summary) => {
+        if (!cancelled) setHasOptions(summary?.hasSalaryOptions ?? false);
+      })
+      .catch(() => {
+        if (!cancelled) setHasOptions(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applicationId, getToken]);
+
+  const canConfirm = !sending && hasOptions !== undefined && hasOptions !== null && (!hasOptions || option !== "");
+
+  return (
+    <StatusDialog
+      open
+      onClose={sending ? () => undefined : onClose}
+      tone="brand"
+      icon={<Award size={32} />}
+      title="Accept this offer?"
+      actions={
+        <>
+          <Button onClick={onClose} disabled={sending} sx={{ fontWeight: 600 }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => onConfirm(hasOptions ? (option === SALARY_OPTIONS[0] ? "1" : "2") : undefined)}
+            disabled={!canConfirm}
+            sx={{ ...pillButtonSx, px: 3 }}
+          >
+            {sending ? "Accepting..." : "Yes, accept"}
+          </Button>
+        </>
+      }
+    >
+      <Typography fontSize="0.95rem" color="text.primary">
+        You are about to accept the offer for {jobTitle}. You will not be able to change this answer here afterwards.
+      </Typography>
+      {hasOptions === null && (
+        <Typography fontSize="0.9rem" color="text.secondary" mt={2}>
+          We could not check your offer. Please close this and try again.
+        </Typography>
+      )}
+      {hasOptions && (
+        <Box sx={{ display: "grid", mt: 2, textAlign: "left" }}>
+          <SelectInput
+            label="Salary option"
+            value={option}
+            onChange={setOption}
+            options={SALARY_OPTIONS}
+            disabled={sending}
+            required
+            span={12}
+          />
+        </Box>
+      )}
+    </StatusDialog>
+  );
+};
 
 export default AcceptOfferDialog;

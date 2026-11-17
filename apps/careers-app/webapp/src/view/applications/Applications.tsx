@@ -215,9 +215,10 @@ const Applications = () => {
     <PageContainer>
       {selectedApplication && dialogKind === "accept" && (
         <AcceptOfferDialog
+          applicationId={selectedApplication.id}
           jobTitle={selectedApplication.jobTitle}
           sending={respondingToOffer}
-          onConfirm={() => handleOfferAnswer({ response: "accepted" })}
+          onConfirm={(salaryOption) => handleOfferAnswer({ response: "accepted", salaryOption })}
           onClose={() => setOfferDialog(null)}
         />
       )}
