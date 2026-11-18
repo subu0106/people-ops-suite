@@ -35,7 +35,7 @@ const WelcomeDialog = ({ jobTitle, onSubmitDocuments, onClose }: WelcomeDialogPr
     onClose={onClose}
     tone="success"
     icon={<Check size={32} strokeWidth={3} />}
-    title="Welcome to the WSO2 family!"
+    title="Welcome to the Choreo Labs family!"
     actions={
       onSubmitDocuments ? (
         <>
@@ -54,7 +54,7 @@ const WelcomeDialog = ({ jobTitle, onSubmitDocuments, onClose }: WelcomeDialogPr
     }
   >
     <Typography fontSize="0.95rem" color="text.primary">
-      Congratulations on joining WSO2 as {jobTitle}.
+      Congratulations on joining Choreo Labs as {jobTitle}.
       {onSubmitDocuments && " Please submit the documents we need to complete your onboarding."} The hiring team will
       contact you with the next steps.
     </Typography>

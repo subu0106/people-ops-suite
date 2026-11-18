@@ -47,7 +47,7 @@ const BRAND_SIZE = 22;
 // their link has an address and opens in a new tab.
 type NavItem = { label: string; icon: typeof ClipboardList } & ({ path: string; href?: never } | { href: string; path?: never });
 const NAV_ITEMS: NavItem[] = [
-  { href: CareersSiteUrl, label: "Jobs (opens the WSO2 careers site)", icon: Briefcase },
+  { href: CareersSiteUrl, label: "Jobs (opens the Choreo Labs careers site)", icon: Briefcase },
   { path: "/applications", label: "Applications", icon: ClipboardList },
   { path: "/profile", label: "Profile", icon: User },
 ];
@@ -155,7 +155,7 @@ const AppShell = () => {
             event.preventDefault();
             navigate("/applications");
           }}
-          aria-label={isSignedIn ? "WSO2 Careers: go to your applications" : "WSO2 Careers: see the open positions"}
+          aria-label={isSignedIn ? "Choreo Labs Careers: go to your applications" : "Choreo Labs Careers: see the open positions"}
           sx={{ display: "flex", alignItems: "center", gap: "3px", textDecoration: "none", color: "text.primary" }}
         >
           <Box
