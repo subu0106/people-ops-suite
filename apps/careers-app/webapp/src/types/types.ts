@@ -84,35 +84,12 @@ export interface Application {
 // A candidate's answer to an offer; a decline always carries its reason, and may carry more feedback.
 export type OfferAnswer = { response: "accepted" } | { response: "declined"; reason: string; comment?: string };
 
-// The compensation of an offer.
-export interface OfferCompensation {
-  monthlySalary: string;
-  annualSalary: string;
-  commissionBonus: string;
-  ote: string;
-}
-
-// The summary of an offer the candidate can read. A detail the offer does not have is null.
-export interface OfferSummary {
+// The letter that was sent for an offer, as HTML.
+export interface OfferLetter {
   offerId: number;
   status: string;
   vacancyTitle: string;
-  offerType: string | null;
-  // yyyy-MM-dd
-  startDate: string | null;
-  // The last day the offer can be answered, yyyy-MM-dd.
-  offerExpiry: string | null;
-  // The day the offer was sent, yyyy-MM-dd.
-  offeredDate: string | null;
-  location: string | null;
-  reporting: string | null;
-  probation: string | null;
-  shift: string | null;
-  team: string | null;
-  duration: string | null;
-  empType: string | null;
-  originCountry: string | null;
-  compensation: OfferCompensation | null;
+  html: string;
 }
 
 // The personal details a new joiner fills in after accepting an offer.

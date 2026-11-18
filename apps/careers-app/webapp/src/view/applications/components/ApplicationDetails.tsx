@@ -44,7 +44,7 @@ import {
   upcomingInterviewOf,
 } from "@view/applications/applicationHelpers";
 import InterviewsSection from "@view/applications/components/InterviewsSection";
-import OfferActions, { OfferSummaryButton } from "@view/applications/components/OfferActions";
+import OfferActions, { OfferLetterButton } from "@view/applications/components/OfferActions";
 import ProgressHistory from "@view/applications/components/ProgressHistory";
 
 interface ApplicationDetailsProps {
@@ -194,7 +194,7 @@ const ApplicationDetails = ({
               You accepted this offer.
             </Typography>
             <Box sx={{ my: 1.5 }}>
-              <OfferSummaryButton applicationId={application.id} jobTitle={application.jobTitle} />
+              <OfferLetterButton applicationId={application.id} jobTitle={application.jobTitle} />
             </Box>
             {!DOCUMENTS_SUBMISSION_ENABLED ? (
               <Typography fontSize="0.9rem" color="text.primary">

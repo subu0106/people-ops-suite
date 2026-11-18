@@ -24,7 +24,7 @@ import {
   DocumentsStatus,
   EditableProfileFields,
   OfferAnswer,
-  OfferSummary,
+  OfferLetter,
   PersonalDetails,
 } from "@/types/types";
 import { AppConfig } from "@config/config";
@@ -208,12 +208,12 @@ export async function respondToOffer(accessToken: string, applicationId: string,
   }
 }
 
-// The summary of the offer of one of the candidate's applications; null when there is no offer to show.
-export async function fetchOfferSummary(accessToken: string, applicationId: string): Promise<OfferSummary | null> {
+// The letter of the offer of one of the candidate's applications; null when there is no letter to show.
+export async function fetchOfferLetter(accessToken: string, applicationId: string): Promise<OfferLetter | null> {
   try {
     return await sendRenewing(accessToken, (token) =>
-      axios.get<OfferSummary>(
-        `${AppConfig.serviceUrls.applications}/${encodeURIComponent(applicationId)}/offer`,
+      axios.get<OfferLetter>(
+        `${AppConfig.serviceUrls.applications}/${encodeURIComponent(applicationId)}/offer/letter`,
         requestOptions(token),
       ),
     );
