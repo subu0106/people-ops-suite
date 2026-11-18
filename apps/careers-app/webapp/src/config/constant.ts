@@ -26,7 +26,7 @@ export const SnackMessage = {
     fetchProfile: "Unable to retrieve your profile.",
     saveProfile: "Unable to save your changes. Please try again.",
     respondToOffer: "Unable to record your response to the offer. Please try again.",
-    offerConflict: "This offer was already answered, or you have already accepted another offer.",
+    offerConflict: "This offer was already answered or has expired.",
     offerExpired: "This offer has expired. Please contact the recruitment team if you still want to join.",
     offerNotFound: "This offer is no longer available. Please contact the recruitment team.",
     fetchDocumentRequirements: "Unable to load the list of documents. Please try again.",

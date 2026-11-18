@@ -215,10 +215,9 @@ const Applications = () => {
     <PageContainer>
       {selectedApplication && dialogKind === "accept" && (
         <AcceptOfferDialog
-          applicationId={selectedApplication.id}
           jobTitle={selectedApplication.jobTitle}
           sending={respondingToOffer}
-          onConfirm={(salaryOption) => handleOfferAnswer({ response: "accepted", salaryOption })}
+          onConfirm={() => handleOfferAnswer({ response: "accepted" })}
           onClose={() => setOfferDialog(null)}
         />
       )}
@@ -253,7 +252,6 @@ const Applications = () => {
           {selectedApplication ? (
             <ApplicationDetails
               application={selectedApplication}
-              canAcceptOffer={!applications.some((a) => a.status === ApplicationStatus.OfferAccepted)}
               onAcceptOffer={() => setOfferDialog({ kind: "accept", applicationId: selectedApplication.id })}
               onDeclineOffer={() => setOfferDialog({ kind: "decline", applicationId: selectedApplication.id })}
               onSubmitDocuments={() => navigate(`/applications/${selectedApplication.id}/documents`)}

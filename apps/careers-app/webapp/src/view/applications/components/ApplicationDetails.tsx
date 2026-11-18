@@ -49,7 +49,6 @@ import ProgressHistory from "@view/applications/components/ProgressHistory";
 
 interface ApplicationDetailsProps {
   application: Application;
-  canAcceptOffer: boolean;
   onAcceptOffer: () => void;
   onDeclineOffer: () => void;
   onSubmitDocuments: () => void;
@@ -62,7 +61,6 @@ interface ApplicationDetailsProps {
 
 const ApplicationDetails = ({
   application,
-  canAcceptOffer,
   onAcceptOffer,
   onDeclineOffer,
   onSubmitDocuments,
@@ -173,7 +171,6 @@ const ApplicationDetails = ({
             <OfferActions
               applicationId={application.id}
               jobTitle={application.jobTitle}
-              canAccept={canAcceptOffer}
               onAccept={onAcceptOffer}
               onDecline={onDeclineOffer}
             />
