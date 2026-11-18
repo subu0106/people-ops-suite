@@ -297,23 +297,23 @@ public isolated function answerOffer(string email, string applicationId, OfferDe
     return postWithToken(string `/candidates/${id}/offer/decision`, body, requestId);
 }
 
-# Fetches the offer summary of an application from the ATS with the caller's email in a header.
-isolated function getOfferSummaryWithToken(int id, string email, string requestId) returns http:Response|error =>
+# Fetches the offer letter of an application from the ATS with the caller's email in a header.
+isolated function getOfferLetterWithToken(int id, string email, string requestId) returns http:Response|error =>
     withToken(isolated function(string token) returns http:Response|error {
         map<string> headers = authHeaders(token, requestId);
         headers["x-candidate-email"] = email;
-        return atsHttpClient->get(string `/candidates/${id}/offer/summary`, headers);
+        return atsHttpClient->get(string `/candidates/${id}/offer/letter`, headers);
     });
 
-# The summary of the offer of one of the caller's own applications. The ATS compares the email with the application's
+# The letter of the offer of one of the caller's own applications. The ATS compares the email with the application's
 # and answers 404 when they differ, and the reply is returned as it is.
-public isolated function getOfferSummary(string email, string applicationId, string requestId)
+public isolated function getOfferLetter(string email, string applicationId, string requestId)
         returns http:Response|error {
     int|error id = int:fromString(applicationId);
     if id is error {
         return failedReply(error UpstreamError("Application not found", status = http:STATUS_NOT_FOUND), requestId);
     }
-    return getOfferSummaryWithToken(id, email, requestId);
+    return getOfferLetterWithToken(id, email, requestId);
 }
 
 isolated function saveProfile(string email, ProfileChanges changes, string requestId) returns CandidateProfile|error {
