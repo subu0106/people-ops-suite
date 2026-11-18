@@ -73,6 +73,8 @@ type AtsHistoryEntry record {
     string? offerEmailSubject = ();
     # When that offer was sent, and last changed by an answer or its expiry.
     string? offerUpdatedAt = ();
+    # Work location of that offer, as HR entered it.
+    string? offerLocation = ();
 };
 
 type AtsHistoryResponse record {
