@@ -185,9 +185,7 @@ const refused = (name: string, message: string) => Object.assign(new Error(messa
 export async function respondToOffer(accessToken: string, applicationId: string, answer: OfferAnswer): Promise<void> {
   const body =
     answer.response === "accepted"
-      ? answer.salaryOption
-        ? { decision: "ACCEPTED", salaryOption: answer.salaryOption }
-        : { decision: "ACCEPTED" }
+      ? { decision: "ACCEPTED" }
       : { decision: "DECLINED", declineReason: answer.reason, declineReasonAdditional: answer.comment || undefined };
   try {
     await sendRenewing(accessToken, (token) =>

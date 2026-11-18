@@ -82,9 +82,7 @@ export interface Application {
 }
 
 // A candidate's answer to an offer; a decline always carries its reason, and may carry more feedback.
-export type OfferAnswer =
-  | { response: "accepted"; salaryOption?: "1" | "2" }
-  | { response: "declined"; reason: string; comment?: string };
+export type OfferAnswer = { response: "accepted" } | { response: "declined"; reason: string; comment?: string };
 
 // The compensation of an offer.
 export interface OfferCompensation {
@@ -115,10 +113,6 @@ export interface OfferSummary {
   empType: string | null;
   originCountry: string | null;
   compensation: OfferCompensation | null;
-  // Whether the candidate chooses a salary option when accepting.
-  hasSalaryOptions: boolean;
-  // The salary option the candidate chose, 1 or 2.
-  salaryOption: string | null;
 }
 
 // The personal details a new joiner fills in after accepting an offer.

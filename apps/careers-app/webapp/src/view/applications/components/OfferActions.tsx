@@ -52,7 +52,6 @@ const summaryRows = (summary: OfferSummary): [string, string][] => {
     ["Shift", summary.shift],
     ["Contract duration", summary.duration],
     ["Probation", summary.probation],
-    ["Salary option", summary.salaryOption ? `Option ${summary.salaryOption}` : null],
     ["Start date", summary.startDate ? formatDate(summary.startDate) : null],
     ["Monthly salary", pay?.monthlySalary ?? null],
     ["Annual salary", pay?.annualSalary ?? null],
@@ -191,25 +190,17 @@ export const OfferSummaryButton = ({ applicationId, jobTitle }: OfferSummaryButt
 interface OfferActionsProps {
   applicationId: string;
   jobTitle: string;
-  // False when the candidate has already accepted another offer.
-  canAccept: boolean;
   onAccept: () => void;
   onDecline: () => void;
 }
 
-// The buttons that answer an offer; accepting is not offered once another offer has been accepted.
-const OfferActions = ({ applicationId, jobTitle, canAccept, onAccept, onDecline }: OfferActionsProps) => (
+// The buttons that answer an offer.
+const OfferActions = ({ applicationId, jobTitle, onAccept, onDecline }: OfferActionsProps) => (
   <Stack direction="row" alignItems="center" gap={1.5} flexWrap="wrap" sx={{ mb: 3 }}>
     <OfferSummaryButton applicationId={applicationId} jobTitle={jobTitle} />
-    {canAccept ? (
-      <Button variant="contained" onClick={onAccept} sx={{ ...pillButtonSx, px: 3 }}>
-        Accept offer
-      </Button>
-    ) : (
-      <Typography fontSize="0.9rem" color="text.secondary">
-        You have already accepted another offer, so you can&apos;t accept this one.
-      </Typography>
-    )}
+    <Button variant="contained" onClick={onAccept} sx={{ ...pillButtonSx, px: 3 }}>
+      Accept offer
+    </Button>
     <Button variant="outlined" onClick={onDecline} sx={{ ...pillButtonSx, px: 3 }}>
       Decline offer
     </Button>
