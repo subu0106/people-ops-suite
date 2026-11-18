@@ -292,7 +292,6 @@ public isolated function answerOffer(string email, string applicationId, OfferDe
         decision: answer.decision,
         declineReason: declined ? (answer.declineReason ?: "").trim() : (),
         declineReasonAdditional: declined ? (answer.declineReasonAdditional ?: "").trim() : (),
-        salaryOption: declined ? () : answer.salaryOption,
         requestedDocuments
     };
     return postWithToken(string `/candidates/${id}/offer/decision`, body, requestId);

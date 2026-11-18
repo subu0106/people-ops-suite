@@ -174,8 +174,6 @@ public type OfferDecision record {|
     string declineReason?;
     # Optional feedback for a decline
     string declineReasonAdditional?;
-    # The salary option chosen on accepting, 1 or 2
-    string salaryOption?;
 |};
 
 type TokenResponse record {
