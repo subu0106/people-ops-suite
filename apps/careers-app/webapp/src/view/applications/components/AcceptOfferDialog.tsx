@@ -47,7 +47,8 @@ const AcceptOfferDialog = ({ jobTitle, sending, onConfirm, onClose }: AcceptOffe
     }
   >
     <Typography fontSize="0.95rem" color="text.primary">
-      You are about to accept the offer for {jobTitle}. You will not be able to change this answer here afterwards.
+      You&apos;re about to accept our offer for the {jobTitle} position. You will not be able to change this answer here
+      afterwards.
     </Typography>
   </StatusDialog>
 );

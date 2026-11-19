@@ -65,15 +65,20 @@ const DeclineOfferDialog = ({ jobTitle, sending, onDecline, onClose }: DeclineOf
         },
       }}
     >
-      <DialogTitle id="decline-title">Decline this offer?</DialogTitle>
+      <DialogTitle id="decline-title">We&apos;re sorry to hear that!</DialogTitle>
       <DialogContent>
+        <Typography fontWeight={600} color="text.primary" mb={1}>
+          {jobTitle}
+        </Typography>
         <Typography color="text.secondary" mb={2}>
-          We are sorry you are not joining us as {jobTitle}. Please tell us why, so we can do better.
+          Thank you for considering Choreo Labs as your next career opportunity. We&apos;d appreciate it if you could
+          share why you&apos;ve decided to decline our offer. Your feedback will help us improve our candidate
+          experience.
         </Typography>
         {/* The same inputs as the profile and documents forms, so the labels sit in the middle of the boxes. */}
         <Box sx={{ display: "grid", gap: 2, pt: 0.5 }}>
           <SelectInput
-            label="Reason"
+            label="What is the primary reason for declining the offer?"
             value={reason}
             onChange={setReason}
             options={DECLINE_REASONS}
