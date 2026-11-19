@@ -122,6 +122,11 @@ export const OfferLetterButton = ({ applicationId, jobTitle }: OfferLetterButton
           <Button onClick={close} sx={{ fontWeight: 600 }}>
             Close
           </Button>
+          {letter === "failed" && (
+            <Button variant="contained" onClick={show} sx={{ ...pillButtonSx, px: 3 }}>
+              Retry
+            </Button>
+          )}
           {letter && letter !== "failed" && (
             <Button variant="contained" onClick={() => printPage(letter.html)} sx={{ ...pillButtonSx, px: 3 }}>
               Download PDF
