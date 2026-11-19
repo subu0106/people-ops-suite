@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Button, Dialog, DialogActions, DialogContent, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@wso2/oxygen-ui";
 import { ClipboardList } from "@wso2/oxygen-ui-icons-react";
 import { useRef, useState } from "react";
 
@@ -83,11 +83,18 @@ export const OfferLetterButton = ({ applicationId, jobTitle }: OfferLetterButton
       <Button variant="outlined" startIcon={<ClipboardList size={16} />} onClick={show} sx={{ ...pillButtonSx, px: 3 }}>
         View offer letter
       </Button>
-      <Dialog open={open} onClose={close} fullWidth maxWidth="md" PaperProps={{ sx: { borderRadius: "16px" } }}>
-        <DialogContent sx={{ pt: 3 }}>
-          <Typography fontWeight={800} fontSize="1.3rem" color="text.primary">
-            Your offer letter
-          </Typography>
+      <Dialog
+        open={open}
+        onClose={close}
+        aria-labelledby="offer-letter-title"
+        fullWidth
+        maxWidth="md"
+        PaperProps={{ sx: { borderRadius: "16px" } }}
+      >
+        <DialogTitle id="offer-letter-title" sx={{ fontWeight: 800, fontSize: "1.3rem", pt: 3, pb: 0 }}>
+          Your offer letter
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
           <Typography fontSize="0.9rem" color="text.secondary" mb={2}>
             {jobTitle}
           </Typography>
