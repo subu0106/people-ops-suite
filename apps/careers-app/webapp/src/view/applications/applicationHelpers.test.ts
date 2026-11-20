@@ -20,6 +20,8 @@ import type { Application, ApplicationInterview } from "@/types/types";
 import { ApplicationStatus } from "@config/constant";
 import {
   defaultTabOf,
+  formatDate,
+  formatDateTime,
   historyOf,
   nextStepOf,
   offerDeadlineOf,
@@ -34,6 +36,32 @@ const application = (overrides: Partial<Application> = {}): Application => ({
   appliedDate: "2026-09-01",
   status: ApplicationStatus.Applied,
   ...overrides,
+});
+
+describe("the date and time format", () => {
+  it("shows a date like Nov 20, 2026", () => {
+    expect(formatDate("2026-11-20")).toBe("Nov 20, 2026");
+  });
+
+  it("shows a time like Nov 20, 2026, 4:53:24 AM GMT+5:30", () => {
+    expect(formatDateTime("2026-11-20T04:53:24Z")).toMatch(
+      /^[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}:\d{2} [AP]M (GMT[+-]\d{1,2}(:\d{2})?|[A-Z]{2,5})$/,
+    );
+  });
+
+  it("reads a time without a zone as UTC, as the databases store it", () => {
+    expect(formatDateTime("2026-11-19T22:53:24")).toBe(formatDateTime("2026-11-19T22:53:24Z"));
+    expect(formatDateTime("2026-11-19 22:53:24.123456")).toBe(formatDateTime("2026-11-19T22:53:24.123Z"));
+  });
+
+  it("keeps the zone of a time that has one", () => {
+    expect(formatDateTime("2026-11-19T22:53:24+05:30")).toBe(formatDateTime("2026-11-19T17:23:24Z"));
+  });
+
+  it("shows a dash for a value that is not a date", () => {
+    expect(formatDate("not a date")).toBe("-");
+    expect(formatDateTime("")).toBe("-");
+  });
 });
 
 describe("offerDeadlineOf", () => {
@@ -135,7 +163,6 @@ describe("historyOf", () => {
       "Initial Interview",
       "Final round",
     ]);
-    expect(entries[2].withTime).toBe(true);
     expect(entries[3].detail).toBe("Interview · Upcoming");
   });
 

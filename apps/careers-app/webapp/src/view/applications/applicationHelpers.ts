@@ -34,7 +34,11 @@ const STAGE_INDEX: Partial<Record<ApplicationStatus, number>> = {
   [ApplicationStatus.OfferExpired]: 4,
 };
 
-// Parses a date, or null when invalid; a date without a time is a local day.
+// Whether a time carries its own zone, as Z or an offset.
+const hasZone = (value: string) => /(Z|[+-]\d{2}:?\d{2})$/i.test(value);
+
+// Parses a date, or null when invalid. A date without a time is a local day; a time without a zone is UTC, as the
+// databases store it.
 const parseDate = (value: string): Date | null => {
   const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (dateOnly) {
@@ -44,15 +48,18 @@ const parseDate = (value: string): Date | null => {
     const exists = date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
     return exists ? date : null;
   }
-  const date = new Date(value);
+  const time = value.trim().replace(" ", "T").replace(/(\.\d{3})\d+/, "$1");
+  const date = new Date(hasZone(time) ? time : `${time}Z`);
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+// The WSO2 date format, for example Nov 20, 2026.
 export const formatDate = (value: string) =>
-  parseDate(value)?.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) ?? "-";
+  parseDate(value)?.toLocaleDateString("en-US", { dateStyle: "medium" }) ?? "-";
 
+// The WSO2 date and time format, for example Nov 20, 2026, 4:53:24 AM GMT+5:30.
 export const formatDateTime = (value: string) =>
-  parseDate(value)?.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) ?? "-";
+  parseDate(value)?.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "long" }) ?? "-";
 
 // The tracker's active step, and the step to mark as an error for a rejected application.
 export function trackerOf(application: Application): { activeStep: number; errorStep: number | null } {
@@ -72,8 +79,6 @@ export function trackerOf(application: Application): { activeStep: number; error
 export interface HistoryEntry {
   label: string;
   date: string | null;
-  // Whether the date carries a time of day.
-  withTime?: boolean;
   detail?: string;
 }
 
@@ -106,7 +111,6 @@ export function historyOf(application: Application, interviews: ApplicationInter
       entries.push({
         label: interview.round,
         date: interview.dateTime || null,
-        withTime: true,
         detail: `Interview · ${interview.status}`,
       }),
     );
