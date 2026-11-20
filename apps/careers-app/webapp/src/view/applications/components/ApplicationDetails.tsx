@@ -44,12 +44,11 @@ import {
   upcomingInterviewOf,
 } from "@view/applications/applicationHelpers";
 import InterviewsSection from "@view/applications/components/InterviewsSection";
-import OfferActions from "@view/applications/components/OfferActions";
+import OfferActions, { OfferLetterButton } from "@view/applications/components/OfferActions";
 import ProgressHistory from "@view/applications/components/ProgressHistory";
 
 interface ApplicationDetailsProps {
   application: Application;
-  canAcceptOffer: boolean;
   onAcceptOffer: () => void;
   onDeclineOffer: () => void;
   onSubmitDocuments: () => void;
@@ -62,7 +61,6 @@ interface ApplicationDetailsProps {
 
 const ApplicationDetails = ({
   application,
-  canAcceptOffer,
   onAcceptOffer,
   onDeclineOffer,
   onSubmitDocuments,
@@ -171,7 +169,8 @@ const ApplicationDetails = ({
               </Typography>
             </Callout>
             <OfferActions
-              canAccept={canAcceptOffer}
+              applicationId={application.id}
+              jobTitle={application.jobTitle}
               onAccept={onAcceptOffer}
               onDecline={onDeclineOffer}
             />
@@ -194,6 +193,9 @@ const ApplicationDetails = ({
             <Typography fontWeight={700} fontSize="0.95rem" color="text.primary">
               You accepted this offer.
             </Typography>
+            <Box sx={{ my: 1.5 }}>
+              <OfferLetterButton applicationId={application.id} jobTitle={application.jobTitle} />
+            </Box>
             {!DOCUMENTS_SUBMISSION_ENABLED ? (
               <Typography fontSize="0.9rem" color="text.primary">
                 The hiring team will contact you with the next steps.

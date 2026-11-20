@@ -23,8 +23,8 @@ import { useEffect, useRef, useState } from "react";
 import SnackbarListener from "@component/common/SnackbarListener";
 import { useAppAuthContext } from "@context/AuthContext";
 
-import wso2LogoBlack from "@assets/images/wso2-logo-black.svg";
-import wso2LogoWhite from "@assets/images/wso2-logo-white.svg";
+import logoNavy from "@assets/images/choreo-labs-logo-navy.png";
+import logoLight from "@assets/images/choreo-labs-logo-light.png";
 
 import { State } from "@/types/types";
 import { useIsDark } from "@config/brand";
@@ -40,14 +40,15 @@ import { RootState, useAppDispatch, useAppSelector } from "@slices/store";
 import { consumeSignInStarted, noteForcedSignOut } from "@utils/profileService";
 import { dataNeededBy } from "@utils/routeData";
 
-// The height of the logo and the size of the word next to it, in pixels, so the two match.
-const BRAND_SIZE = 22;
+// The height of the logo and the size of the word next to it, in pixels.
+const LOGO_HEIGHT = 28;
+const BRAND_WORD_SIZE = 22;
 
 // The links of the top bar. A page of this app has a path; the open positions are on the wso2.com careers page, so
 // their link has an address and opens in a new tab.
 type NavItem = { label: string; icon: typeof ClipboardList } & ({ path: string; href?: never } | { href: string; path?: never });
 const NAV_ITEMS: NavItem[] = [
-  { href: CareersSiteUrl, label: "Jobs (opens the WSO2 careers site)", icon: Briefcase },
+  { href: CareersSiteUrl, label: "Careers vacancy page", icon: Briefcase },
   { path: "/applications", label: "Applications", icon: ClipboardList },
   { path: "/profile", label: "Profile", icon: User },
 ];
@@ -155,20 +156,20 @@ const AppShell = () => {
             event.preventDefault();
             navigate("/applications");
           }}
-          aria-label={isSignedIn ? "WSO2 Careers: go to your applications" : "WSO2 Careers: see the open positions"}
-          sx={{ display: "flex", alignItems: "center", gap: "3px", textDecoration: "none", color: "text.primary" }}
+          aria-label={isSignedIn ? "Choreo Labs Careers: go to your applications" : "Choreo Labs Careers: see the open positions"}
+          sx={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none", color: "text.primary" }}
         >
           <Box
             component="img"
-            src={isDark ? wso2LogoWhite : wso2LogoBlack}
+            src={isDark ? logoLight : logoNavy}
             alt=""
-            sx={{ height: BRAND_SIZE, width: "auto" }}
+            sx={{ height: LOGO_HEIGHT, width: "auto", display: "block" }}
           />
           <Typography
             component="span"
-            fontSize={BRAND_SIZE}
+            fontSize={BRAND_WORD_SIZE}
             lineHeight={1}
-            fontWeight={600}
+            fontWeight={500}
             color="text.primary"
           >
             Careers

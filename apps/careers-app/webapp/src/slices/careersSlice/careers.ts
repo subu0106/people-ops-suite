@@ -214,7 +214,9 @@ const CareersSlice = createSlice({
         state.applicationsState = State.success;
       })
       .addCase(loadApplications.rejected, (state, action) => {
-        if (!isStale(action.error)) state.applicationsState = State.failed;
+        if (isStale(action.error)) return;
+        // A failed reload keeps the applications on screen and is tried again later.
+        state.applicationsState = state.applications.length > 0 ? State.success : State.failed;
       })
       // A 401 on any signed-in request ends the session.
       .addMatcher(

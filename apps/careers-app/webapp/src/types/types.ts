@@ -84,6 +84,14 @@ export interface Application {
 // A candidate's answer to an offer; a decline always carries its reason, and may carry more feedback.
 export type OfferAnswer = { response: "accepted" } | { response: "declined"; reason: string; comment?: string };
 
+// The letter that was sent for an offer, as HTML.
+export interface OfferLetter {
+  offerId: number;
+  status: string;
+  vacancyTitle: string;
+  html: string;
+}
+
 // The personal details a new joiner fills in after accepting an offer.
 export interface PersonalDetails {
   title: string;

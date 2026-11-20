@@ -24,6 +24,7 @@ import {
   DocumentsStatus,
   EditableProfileFields,
   OfferAnswer,
+  OfferLetter,
   PersonalDetails,
 } from "@/types/types";
 import { AppConfig } from "@config/config";
@@ -203,6 +204,21 @@ export async function respondToOffer(accessToken: string, applicationId: string,
     if (status === 404) throw refused(OFFER_NOT_FOUND_ERROR, "There is no offer to answer.");
     if (status === 409) throw refused(OFFER_CONFLICT_ERROR, "The offer cannot be answered.");
     if (status === 410) throw refused(OFFER_EXPIRED_ERROR, "The offer has expired.");
+    throw error;
+  }
+}
+
+// The letter of the offer of one of the candidate's applications; null when there is no letter to show.
+export async function fetchOfferLetter(accessToken: string, applicationId: string): Promise<OfferLetter | null> {
+  try {
+    return await sendRenewing(accessToken, (token) =>
+      axios.get<OfferLetter>(
+        `${AppConfig.serviceUrls.applications}/${encodeURIComponent(applicationId)}/offer/letter`,
+        requestOptions(token),
+      ),
+    );
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) return null;
     throw error;
   }
 }

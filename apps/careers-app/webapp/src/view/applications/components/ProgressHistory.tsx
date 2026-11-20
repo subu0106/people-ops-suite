@@ -16,7 +16,7 @@
 
 import { Box, Stack, Typography } from "@wso2/oxygen-ui";
 
-import { type HistoryEntry, formatDate, formatDateTime } from "@view/applications/applicationHelpers";
+import { type HistoryEntry, formatDate } from "@view/applications/applicationHelpers";
 import SectionTitle from "@view/applications/components/SectionTitle";
 
 interface ProgressHistoryProps {
@@ -34,7 +34,7 @@ const ProgressHistory = ({ entries }: ProgressHistoryProps) => {
         {[...entries].reverse().map((entry, index) => (
           <Stack key={`${entry.label}-${entry.date}-${index}`} direction="row" gap={2}>
             <Typography fontSize="0.85rem" color="text.secondary" sx={{ minWidth: 150 }}>
-              {entry.date ? (entry.withTime ? formatDateTime(entry.date) : formatDate(entry.date)) : "Date not recorded"}
+              {entry.date ? formatDate(entry.date) : "Not available"}
             </Typography>
             <Box>
               <Typography fontSize="0.9rem" fontWeight={600}>

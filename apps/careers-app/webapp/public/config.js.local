@@ -1,5 +1,5 @@
 window.config = {
-  APP_NAME: "WSO2 Careers",
+  APP_NAME: "Choreo Labs Careers",
   APP_DOMAIN: "http://localhost:3000",
   ASGARDEO_BASE_URL: "https://api.asgardeo.io/t/<your-asgardeo-tenant>",
   ASGARDEO_CLIENT_ID: "<your-asgardeo-client-id>",
@@ -8,5 +8,5 @@ window.config = {
   AUTH_SIGN_OUT_REDIRECT_URL: "http://localhost:3000",
   CAREERS_BACKEND_BASE_URL: "http://localhost:9090",
   // The wso2.com careers page that the Jobs link opens.
-  CAREERS_SITE_URL: "https://wso2.com/careers#careers",
+  CAREERS_SITE_URL: "https://choreolabs.com/careers#careers",
 };

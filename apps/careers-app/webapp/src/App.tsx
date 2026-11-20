@@ -27,7 +27,7 @@ import { store } from "@slices/store";
 import "./index.css";
 
 function App() {
-  document.title = APP_NAME || "WSO2 Careers";
+  document.title = APP_NAME || "Choreo Labs Careers";
 
   return (
     <OxygenUIThemeProvider theme={WSO2Theme}>

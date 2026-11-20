@@ -16,7 +16,7 @@
 
 import { Button, Typography } from "@wso2/oxygen-ui";
 import { ArrowLeft } from "@wso2/oxygen-ui-icons-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -59,6 +59,9 @@ import DeclineOfferDialog from "@view/applications/components/DeclineOfferDialog
 import WelcomeDialog from "@view/applications/components/WelcomeDialog";
 
 const NO_INTERVIEWS: ApplicationInterview[] = [];
+
+// The shortest time between two reloads started by the candidate coming back to the page.
+const REFRESH_MIN_GAP_MS = 5_000;
 
 const Applications = () => {
   const navigate = useNavigate();
@@ -137,17 +140,26 @@ const Applications = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, hasAcceptedOffer, getToken, generation, documentsStatusAttempt, version]);
 
-  // An offer can run out while the tab stays open, so the applications are loaded again when the candidate comes back to
-  // the tab and an offer is still open.
-  const hasOpenOffer = applications.some((a) => a.status === ApplicationStatus.Offer);
+  // Reloads the applications when the candidate opens this page or returns to the tab, the window or the connection.
+  const lastRefreshAt = useRef(0);
   useEffect(() => {
-    if (!hasOpenOffer) return;
-    const onVisible = () => {
-      if (document.visibilityState === "visible") dispatch(refreshApplications());
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      // Skips a reload started within a few seconds of the last one.
+      if (Date.now() - lastRefreshAt.current < REFRESH_MIN_GAP_MS) return;
+      lastRefreshAt.current = Date.now();
+      dispatch(refreshApplications());
     };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [hasOpenOffer, dispatch]);
+    refresh();
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("online", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("online", refresh);
+    };
+  }, [dispatch]);
 
   // A dialog belongs to the application it was opened for, so it never follows the candidate to another one.
   const [offerDialog, setOfferDialog] = useState<{
@@ -237,7 +249,6 @@ const Applications = () => {
           {selectedApplication ? (
             <ApplicationDetails
               application={selectedApplication}
-              canAcceptOffer={!applications.some((a) => a.status === ApplicationStatus.OfferAccepted)}
               onAcceptOffer={() => setOfferDialog({ kind: "accept", applicationId: selectedApplication.id })}
               onDeclineOffer={() => setOfferDialog({ kind: "decline", applicationId: selectedApplication.id })}
               onSubmitDocuments={() => navigate(`/applications/${selectedApplication.id}/documents`)}
