@@ -305,8 +305,7 @@ isolated function getOfferLetterWithToken(int id, string email, string requestId
         return atsHttpClient->get(string `/candidates/${id}/offer/letter`, headers);
     });
 
-# The letter of the offer of one of the caller's own applications. The ATS compares the email with the application's
-# and answers 404 when they differ, and the reply is returned as it is.
+# The letter of the offer of one of the caller's own applications.
 public isolated function getOfferLetter(string email, string applicationId, string requestId)
         returns http:Response|error {
     int|error id = int:fromString(applicationId);
