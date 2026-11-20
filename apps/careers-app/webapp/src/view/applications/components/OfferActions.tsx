@@ -24,25 +24,40 @@ import { useAppAuthContext } from "@context/AuthContext";
 import { fetchOfferLetter } from "@utils/profileService";
 import { pillButtonSx } from "@utils/styles";
 
-// The frame settings that keep scripts in the letter from running; the page can still be printed.
-const LETTER_FRAME_SANDBOX = "allow-same-origin allow-modals";
+// The frame settings that keep scripts in the letter from running.
+const LETTER_FRAME_SANDBOX = "allow-same-origin";
 
-// Prints a page through a hidden frame, where the reader can save it as a PDF.
-const printPage = (html: string) => {
+// The width the letter is laid out at when it is saved, about an A4 page at 96 dpi.
+const PDF_PAGE_WIDTH = 794;
+
+// Renders the letter in a hidden frame and saves it as a PDF file in the browser's downloads folder.
+const downloadPdf = async (html: string, jobTitle: string): Promise<void> => {
+  const name = `Offer-Letter-${jobTitle.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "WSO2"}.pdf`;
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   frame.setAttribute("sandbox", LETTER_FRAME_SANDBOX);
-  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
-  frame.onload = () => {
-    const printed = frame.contentWindow;
-    if (!printed) return;
-    printed.onafterprint = () => frame.remove();
-    printed.focus();
-    printed.print();
-  };
-  frame.srcdoc = html;
-  document.body.appendChild(frame);
-  window.setTimeout(() => frame.remove(), 120_000);
+  frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${PDF_PAGE_WIDTH}px;height:1200px;border:0`;
+  try {
+    await new Promise<void>((resolve) => {
+      frame.onload = () => resolve();
+      frame.srcdoc = html;
+      document.body.appendChild(frame);
+    });
+    const letterBody = frame.contentDocument?.body;
+    if (!letterBody) throw new Error("The offer letter could not be rendered.");
+    const { default: html2pdf } = await import("html2pdf.js");
+    const options = {
+      margin: [10, 10, 10, 10] as [number, number, number, number],
+      filename: name,
+      image: { type: "jpeg" as const, quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, windowWidth: PDF_PAGE_WIDTH },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+      pagebreak: { mode: ["css", "legacy"], avoid: ["tr", "p", "li"] },
+    };
+    await html2pdf().set(options).from(letterBody).save();
+  } finally {
+    frame.remove();
+  }
 };
 
 interface OfferLetterButtonProps {
@@ -57,8 +72,11 @@ export const OfferLetterButton = ({ applicationId, jobTitle }: OfferLetterButton
   // Undefined while loading, null when there is no letter, "failed" when it could not be loaded.
   const [letter, setLetter] = useState<OfferLetter | null | undefined | "failed">(undefined);
   const attempt = useRef(0);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadFailed, setDownloadFailed] = useState(false);
 
   const show = () => {
+    setDownloadFailed(false);
     const current = ++attempt.current;
     setLetter(undefined);
     setOpen(true);
@@ -117,6 +135,11 @@ export const OfferLetterButton = ({ applicationId, jobTitle }: OfferLetterButton
               sx={{ width: "100%", height: "65vh", border: "1px solid", borderColor: "divider", borderRadius: "8px" }}
             />
           )}
+          {downloadFailed && (
+            <Typography fontSize="0.85rem" color="error" mt={1.5}>
+              We could not create the PDF. Please try again.
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: "flex-end", gap: 1, pb: 2, px: 3 }}>
           <Button onClick={close} sx={{ fontWeight: 600 }}>
@@ -128,8 +151,19 @@ export const OfferLetterButton = ({ applicationId, jobTitle }: OfferLetterButton
             </Button>
           )}
           {letter && letter !== "failed" && (
-            <Button variant="contained" onClick={() => printPage(letter.html)} sx={{ ...pillButtonSx, px: 3 }}>
-              Download PDF
+            <Button
+              variant="contained"
+              disabled={downloading}
+              onClick={() => {
+                setDownloading(true);
+                setDownloadFailed(false);
+                            downloadPdf(letter.html, jobTitle)
+                  .catch(() => setDownloadFailed(true))
+                  .finally(() => setDownloading(false));
+              }}
+              sx={{ ...pillButtonSx, px: 3 }}
+            >
+              {downloading ? "Preparing…" : "Download PDF"}
             </Button>
           )}
         </DialogActions>
