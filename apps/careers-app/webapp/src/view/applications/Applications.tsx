@@ -140,15 +140,12 @@ const Applications = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, hasAcceptedOffer, getToken, generation, documentsStatusAttempt, version]);
 
-  // The hiring team moves an application on, sends an offer or lets one run out while the candidate is elsewhere, so the
-  // applications are loaded again when the candidate comes back: when they open this page, return to the tab or to the
-  // window, or the connection returns. Nothing runs on a timer. The list stays on screen while it loads, and a load that
-  // fails leaves what is shown as it is.
+  // Reloads the applications when the candidate opens this page or returns to the tab, the window or the connection.
   const lastRefreshAt = useRef(0);
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState !== "visible") return;
-      // The tab and window events often arrive together, so a reload is not started again within a few seconds.
+      // Skips a reload started within a few seconds of the last one.
       if (Date.now() - lastRefreshAt.current < REFRESH_MIN_GAP_MS) return;
       lastRefreshAt.current = Date.now();
       dispatch(refreshApplications());

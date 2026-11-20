@@ -40,8 +40,7 @@ import { RootState, useAppDispatch, useAppSelector } from "@slices/store";
 import { consumeSignInStarted, noteForcedSignOut } from "@utils/profileService";
 import { dataNeededBy } from "@utils/routeData";
 
-// The height of the logo and the size of the word next to it, in pixels; the word is smaller than the logo because
-// the letters of the logo fill only part of its height.
+// The height of the logo and the size of the word next to it, in pixels.
 const LOGO_HEIGHT = 28;
 const BRAND_WORD_SIZE = 22;
 

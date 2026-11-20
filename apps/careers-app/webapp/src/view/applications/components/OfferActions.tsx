@@ -54,7 +54,7 @@ interface OfferLetterButtonProps {
 export const OfferLetterButton = ({ applicationId, jobTitle }: OfferLetterButtonProps) => {
   const { getToken } = useAppAuthContext();
   const [open, setOpen] = useState(false);
-  // Undefined while loading, null when there is no letter to show, and "failed" when it could not be loaded.
+  // Undefined while loading, null when there is no letter, "failed" when it could not be loaded.
   const [letter, setLetter] = useState<OfferLetter | null | undefined | "failed">(undefined);
   const attempt = useRef(0);
 
