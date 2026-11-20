@@ -77,7 +77,7 @@ isolated function interviewsOf(AtsInterview[] interviews) returns ApplicationInt
 // letter, so the buttons appear only when there is an offer to answer.
 isolated function applicationStatusOf(string atsStatus, string? offerStatus = ()) returns string {
     match offerStatus {
-        OFFER_STATUS_OFFER_SENT => {
+        OFFER_STATUS_SENT => {
             return "Offer";
         }
         OFFER_STATUS_ACCEPTED => {
@@ -119,11 +119,11 @@ isolated function applicationOf(AtsHistoryEntry entry) returns ApplicationSummar
         status: applicationStatusOf(entry.status, entry.offerStatus)
     };
     string? expiryDate = entry.offerExpiryDate;
-    if expiryDate is string && (entry.offerStatus == OFFER_STATUS_OFFER_SENT || entry.offerStatus == OFFER_STATUS_EXPIRED) {
+    if expiryDate is string && (entry.offerStatus == OFFER_STATUS_SENT || entry.offerStatus == OFFER_STATUS_EXPIRED) {
         summary.offerExpiresOn = expiryDate;
     }
     string? emailSubject = entry.offerEmailSubject;
-    if emailSubject is string && entry.offerStatus == OFFER_STATUS_OFFER_SENT {
+    if emailSubject is string && entry.offerStatus == OFFER_STATUS_SENT {
         summary.offerEmailSubject = emailSubject;
     }
     return summary;

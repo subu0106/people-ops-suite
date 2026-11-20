@@ -25,7 +25,7 @@ public type AtsConfig record {|
 const CANDIDATE_STATUS_DELETED = "DELETED";
 const CANDIDATE_STATUS_HIRED = "HIRED";
 
-const OFFER_STATUS_OFFER_SENT = "OFFER_SENT";
+const OFFER_STATUS_SENT = "SENT";
 const OFFER_STATUS_ACCEPTED = "ACCEPTED";
 const OFFER_STATUS_DECLINED = "DECLINED";
 const OFFER_STATUS_EXPIRED = "EXPIRED";
@@ -73,6 +73,8 @@ type AtsHistoryEntry record {
     string? offerEmailSubject = ();
     # When that offer was sent, and last changed by an answer or its expiry.
     string? offerUpdatedAt = ();
+    # Work location of that offer, as HR entered it.
+    string? offerLocation = ();
 };
 
 type AtsHistoryResponse record {

@@ -262,7 +262,7 @@ function interviewsAreListedInTheOrderTheyTakePlace() {
 
 @test:Config {}
 function anOfferStatusReplacesTheApplicationStatus() {
-    test:assertEquals(applicationStatusOf("HIRED", "OFFER_SENT"), "Offer");
+    test:assertEquals(applicationStatusOf("HIRED", "SENT"), "Offer");
     test:assertEquals(applicationStatusOf("HIRED", "ACCEPTED"), "Offer Accepted");
     test:assertEquals(applicationStatusOf("HIRED", "DECLINED"), "Offer Declined");
     test:assertEquals(applicationStatusOf("HIRED", "EXPIRED"), "Offer Expired");
@@ -279,7 +279,7 @@ function offeredEntry(string offerStatus) returns AtsHistoryEntry {
 
 @test:Config {}
 function theOfferDeadlineIsShownOnlyWhileItMatters() {
-    ApplicationSummary open = applicationOf(offeredEntry("OFFER_SENT"));
+    ApplicationSummary open = applicationOf(offeredEntry("SENT"));
     test:assertEquals(open?.offerExpiresOn, "2026-11-12");
     test:assertEquals(open?.offerEmailSubject, "Offer letter");
 
