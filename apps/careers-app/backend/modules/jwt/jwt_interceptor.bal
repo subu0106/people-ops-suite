@@ -16,7 +16,6 @@
 
 import wso2/careers_app.types;
 
-import ballerina/cache;
 import ballerina/http;
 import ballerina/jwt;
 import ballerina/log;
@@ -42,15 +41,14 @@ isolated function identityFromAssertion(string assertion) returns [AsgardeoJwt, 
     return [user, detailsOf(payload.toJson())];
 }
 
-# Keeps the caller's details where the user-info call looks first, so the request needs no access token.
+const CTX_DETAILS = "careers-app-caller-details";
+
+# The details of the caller of this request, read from the gateway assertion.
 #
-# + user - The caller
-# + details - The details from the assertion
-isolated function keepAssertionDetails(AsgardeoJwt user, CallerDetails details) {
-    cache:Error? stored = detailsCache.put(user.sub, details.cloneReadOnly());
-    if stored is cache:Error {
-        log:printWarn("Could not keep the caller's details in the cache", stored);
-    }
+# + ctx - The request context
+# + return - The caller's details, or an error when the request has none
+public isolated function getCallerDetails(http:RequestContext ctx) returns CallerDetails|error {
+    return ctx.getWithType(CTX_DETAILS);
 }
 
 # Reads the caller from the assertion the Choreo gateway adds to every request, as the People app does, and stashes
@@ -85,10 +83,9 @@ public isolated service class JwtInterceptor {
             };
         }
 
-        // The details come with the assertion, so the routes need no access token to ask the identity provider.
-        keepAssertionDetails(user, caller[1]);
+        // The details come with the assertion, so the routes need no call to the identity provider.
         ctx.set(CTX_USER, user);
-        ctx.set(CTX_TOKEN, "");
+        ctx.set(CTX_DETAILS, caller[1]);
         return ctx.next();
     }
 }

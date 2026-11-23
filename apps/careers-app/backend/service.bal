@@ -401,17 +401,12 @@ isolated function profileReply(http:Response|error resp, string failureMessage, 
     return <http:InternalServerError>{body: {message: failureMessage}};
 }
 
-# The caller's details from the identity provider, or a refusal when the account has no email.
+# The caller's details from the gateway assertion, or a refusal when the account has no email.
 isolated function callerOf(http:RequestContext ctx, string requestId)
         returns jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:InternalServerError {
-    jwt:AsgardeoJwt|error user = jwt:getUser(ctx);
-    string|error token = jwt:getAccessToken(ctx);
-    if user is error || token is error {
-        return <http:Forbidden>{body: {message: "The caller could not be identified"}};
-    }
-    jwt:CallerDetails|error details = jwt:callerDetails(user, token);
+    jwt:CallerDetails|error details = jwt:getCallerDetails(ctx);
     if details is error {
-        return candidateFailure(details, "Failed to read the caller's details", requestId);
+        return <http:Forbidden>{body: {message: "The caller could not be identified"}};
     }
     if details.email == "" {
         return <http:Forbidden>{body: {message: "The account has no email address"}};
