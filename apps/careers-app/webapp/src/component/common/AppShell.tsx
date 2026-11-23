@@ -59,7 +59,7 @@ const AppShell = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const { getToken: getAccessToken, isSignedIn, appSignIn, appSignOut } = useAppAuthContext();
+  const { getToken: getIdToken, isSignedIn, appSignIn, appSignOut } = useAppAuthContext();
   const applicationsState = useAppSelector((state: RootState) => state.careers.applicationsState);
   const profileState = useAppSelector((state: RootState) => state.careers.profileState);
   const sessionExpired = useAppSelector((state: RootState) => state.careers.sessionExpired);
@@ -84,7 +84,7 @@ const AppShell = () => {
     if (!isSignedIn || (!loadApps && !loadOwnProfile)) return;
     // Set when the effect is replaced before the token arrives.
     let cancelled = false;
-    getAccessToken()
+    getIdToken()
       .then((token) => {
         if (cancelled) return;
         if (loadApps) dispatch(loadApplications(token));
@@ -98,14 +98,14 @@ const AppShell = () => {
     return () => {
       cancelled = true;
     };
-  }, [isSignedIn, applicationsState, profileState, needsApplications, needsProfile, dispatch, getAccessToken]);
+  }, [isSignedIn, applicationsState, profileState, needsApplications, needsProfile, dispatch, getIdToken]);
 
   // Clears the candidate's data when nobody is signed in.
   useEffect(() => {
     if (!isSignedIn) dispatch(clearUserData());
   }, [isSignedIn, dispatch]);
 
-  // Signs the candidate out when the backend refuses the access token and a new one could not be had. The sign-out is
+  // Signs the candidate out when the backend refuses the ID token and a new one could not be had. The sign-out is
   // noted, so the entry page does not start the same sign-in again if the backend keeps refusing the session.
   useEffect(() => {
     if (!sessionExpired) return;

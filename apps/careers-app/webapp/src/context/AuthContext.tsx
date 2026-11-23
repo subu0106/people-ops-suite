@@ -31,9 +31,9 @@ type AuthContextType = {
   appSignOut: () => void;
   // False for visitors browsing without an account.
   isSignedIn: boolean;
-  // The access token for a signed-in user, or an empty string for a guest.
+  // The ID token for a signed-in user, or an empty string for a guest.
   getToken: () => Promise<string>;
-  // A new access token for a signed-in user whose token has expired, got without leaving the page. It fails when the
+  // A new ID token for a signed-in user whose token has expired, got without leaving the page. It fails when the
   // sign-in cannot be renewed that way, and the user has to sign in again.
   renewToken: () => Promise<string>;
 };
@@ -130,7 +130,9 @@ const AppAuthProvider = (props: { children: React.ReactNode }) => {
     if (!isAuthenticated) return "";
     try {
       return await sdk.current.getIDToken();
-    } catch {
+    } catch (error) {
+      // The request that gets this empty token is not sent, and the session is treated as ended.
+      console.error("The ID token could not be read", error);
       return "";
     }
   }, [isAuthenticated]);
@@ -146,7 +148,7 @@ const AppAuthProvider = (props: { children: React.ReactNode }) => {
     return sdk.current.getIDToken();
   }, []);
 
-  // The calls to the backend renew the access token through this when it has run out.
+  // The calls to the backend renew the ID token through this when it has run out.
   useEffect(() => {
     setTokenRenewer(renewToken);
     return () => setTokenRenewer(null);
