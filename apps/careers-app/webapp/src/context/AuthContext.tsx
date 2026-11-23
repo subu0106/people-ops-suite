@@ -31,9 +31,9 @@ type AuthContextType = {
   appSignOut: () => void;
   // False for visitors browsing without an account.
   isSignedIn: boolean;
-  // The access token for a signed-in user, or an empty string for a guest.
+  // The ID token for a signed-in user, or an empty string for a guest.
   getToken: () => Promise<string>;
-  // A new access token for a signed-in user whose token has expired, got without leaving the page. It fails when the
+  // A new ID token for a signed-in user whose token has expired, got without leaving the page. It fails when the
   // sign-in cannot be renewed that way, and the user has to sign in again.
   renewToken: () => Promise<string>;
 };
@@ -51,7 +51,7 @@ const AppAuthProvider = (props: { children: React.ReactNode }) => {
     state,
     getBasicUserInfo,
     getDecodedIDToken,
-    getAccessToken,
+    getIDToken,
     refreshAccessToken,
     trySignInSilently,
   } = useAuthContext();
@@ -121,31 +121,34 @@ const AppAuthProvider = (props: { children: React.ReactNode }) => {
 
   // The identity provider's functions change on every render, so they are read through a ref. That keeps getToken and
   // renewToken stable, and the pages that load data when they change do not reload on a theme switch.
-  const sdk = useRef({ getAccessToken, refreshAccessToken, trySignInSilently });
-  sdk.current = { getAccessToken, refreshAccessToken, trySignInSilently };
+  const sdk = useRef({ getIDToken, refreshAccessToken, trySignInSilently });
+  sdk.current = { getIDToken, refreshAccessToken, trySignInSilently };
 
+  // The ID token goes to the backend: the gateway passes its claims (the email and the name) on to the backend.
   // A guest has no token, so the call gets an empty one.
   const getToken = useCallback(async () => {
     if (!isAuthenticated) return "";
     try {
-      return await sdk.current.getAccessToken();
-    } catch {
+      return await sdk.current.getIDToken();
+    } catch (error) {
+      // The request that gets this empty token is not sent, and the session is treated as ended.
+      console.error("The ID token could not be read", error);
       return "";
     }
   }, [isAuthenticated]);
 
-  // Renews the access token with the refresh token, and when there is none, through the user's session with the
-  // identity provider.
+  // Renews the tokens with the refresh token, and when there is none, through the user's session with the identity
+  // provider.
   const renewToken = useCallback(async () => {
     try {
       await sdk.current.refreshAccessToken();
     } catch {
       if (!(await sdk.current.trySignInSilently())) throw new Error("The session could not be renewed.");
     }
-    return sdk.current.getAccessToken();
+    return sdk.current.getIDToken();
   }, []);
 
-  // The calls to the backend renew the access token through this when it has run out.
+  // The calls to the backend renew the ID token through this when it has run out.
   useEffect(() => {
     setTokenRenewer(renewToken);
     return () => setTokenRenewer(null);

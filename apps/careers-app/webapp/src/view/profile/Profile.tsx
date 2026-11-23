@@ -205,7 +205,7 @@ const Profile = () => {
     setSaving(true);
     try {
       const token = await getToken();
-      await dispatch(updateProfile({ accessToken: token, changes })).unwrap();
+      await dispatch(updateProfile({ idToken: token, changes })).unwrap();
       notify(SnackMessage.success.profileUpdated, "success");
       setEditing(null);
     } catch {
