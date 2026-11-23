@@ -17,12 +17,42 @@
 import wso2/careers_app.types;
 
 import ballerina/http;
+import ballerina/jwt;
 import ballerina/log;
+import ballerina/time;
 
 final UserRateLimiter signedInRateLimiter = new;
 
-# Validates the caller's bearer token (JWKS, falling back to introspection)
-# and stashes their identity in the request context for resource functions
+# The header in which the gateway sends the caller's assertion. The gateway has already checked the token, so the
+# assertion is read without checking its signature again; the backend must be reachable through the gateway only.
+const GATEWAY_ASSERTION_HEADER = "x-jwt-assertion";
+
+# The caller's identity and details in a gateway assertion.
+#
+# + assertion - The assertion
+# + return - The identity and the details, or an error when the assertion cannot be read or has run out
+isolated function identityFromAssertion(string assertion) returns [AsgardeoJwt, CallerDetails]|error {
+    [jwt:Header, jwt:Payload] [_, payload] = check jwt:decode(assertion);
+    int? expiry = payload?.exp;
+    if expiry is int && expiry < time:utcNow()[0] {
+        return error("The gateway assertion has run out");
+    }
+    AsgardeoJwt user = check identityOf(payload);
+    return [user, detailsOf(payload.toJson())];
+}
+
+const CTX_DETAILS = "careers-app-caller-details";
+
+# The details of the caller of this request, read from the gateway assertion.
+#
+# + ctx - The request context
+# + return - The caller's details, or an error when the request has none
+public isolated function getCallerDetails(http:RequestContext ctx) returns CallerDetails|error {
+    return ctx.getWithType(CTX_DETAILS);
+}
+
+# Reads the caller from the assertion the Choreo gateway adds to every request, as the People app does, and stashes
+# their identity in the request context for resource functions. The gateway has already checked the token.
 public isolated service class JwtInterceptor {
     *http:RequestInterceptor;
 
@@ -32,18 +62,18 @@ public isolated service class JwtInterceptor {
             return ctx.next();
         }
 
-        string|http:HeaderNotFoundError authHeader = req.getHeader(http:AUTH_HEADER);
-        if authHeader is http:HeaderNotFoundError || !authHeader.startsWith("Bearer ") {
-            log:printError("Missing or malformed Authorization header", requestId = types:requestIdOf(ctx));
+        string|http:HeaderNotFoundError assertion = req.getHeader(GATEWAY_ASSERTION_HEADER);
+        if assertion is http:HeaderNotFoundError {
+            log:printError("Missing invoker info header", requestId = types:requestIdOf(ctx));
             return <AppUnauthorizedError>{body: {message: "Unauthorized"}};
         }
-        string token = authHeader.substring(7);
 
-        AsgardeoJwt|error user = validateToken(token);
-        if user is error {
-            log:printError("Token validation failed", user, requestId = types:requestIdOf(ctx));
+        [AsgardeoJwt, CallerDetails]|error caller = identityFromAssertion(assertion);
+        if caller is error {
+            log:printError("Error while reading the invoker info", caller, requestId = types:requestIdOf(ctx));
             return <AppUnauthorizedError>{body: {message: "Unauthorized"}};
         }
+        AsgardeoJwt user = caller[0];
 
         if !signedInRateLimiter.tryAcquireUser(user.sub) {
             log:printWarn("Request rate limit reached for a signed-in user", requestId = types:requestIdOf(ctx));
@@ -53,8 +83,9 @@ public isolated service class JwtInterceptor {
             };
         }
 
+        // The details come with the assertion, so the routes need no call to the identity provider.
         ctx.set(CTX_USER, user);
-        ctx.set(CTX_TOKEN, token);
+        ctx.set(CTX_DETAILS, caller[1]);
         return ctx.next();
     }
 }

@@ -17,25 +17,6 @@
 import ballerina/jwt;
 import ballerina/test;
 
-// Header {"alg":"none"} with a payload that looks valid (right issuer and audience, far-future expiry) and no signature.
-const string UNSIGNED_TOKEN = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0."
-    + "eyJzdWIiOiJzb21lb25lIiwiZXhwIjo5OTk5OTk5OTk5LCJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLnRlc3QiLCJhdWQiOiJ0ZXN0LWF1ZGllbmNlIn0.";
-
-@test:Config {}
-function emptyTokenIsRejected() {
-    test:assertTrue(validateToken("") is error);
-}
-
-@test:Config {}
-function malformedTokenIsRejected() {
-    test:assertTrue(validateToken("not-a-jwt") is error);
-}
-
-@test:Config {}
-function unsignedTokenIsRejected() {
-    test:assertTrue(validateToken(UNSIGNED_TOKEN) is error);
-}
-
 @test:Config {}
 function identityIsTheSubject() {
     jwt:Payload payload = {sub: "user-1"};
@@ -66,23 +47,6 @@ function detailsComeFromTheUserInfo() {
 }
 
 @test:Config {}
-function userInfoMustBelongToTheCaller() {
-    test:assertTrue(isUserInfoOf({"sub": "user-1", "email": "ada@example.test"}, "user-1"));
-    test:assertFalse(isUserInfoOf({"sub": "user-2", "email": "ada@example.test"}, "user-1"));
-    test:assertFalse(isUserInfoOf({"email": "ada@example.test"}, "user-1"));
-    test:assertFalse(isUserInfoOf({"sub": 1}, "1"));
-    test:assertFalse(isUserInfoOf("not an object", "user-1"));
-}
-
-@test:Config {}
-function aRefusedAccessTokenIsToldApartFromOtherFailures() {
-    error refused = error UserInfoRefused("refused");
-    error other = error("unreadable reply");
-    test:assertTrue(refused is UserInfoRefused);
-    test:assertFalse(other is UserInfoRefused);
-}
-
-@test:Config {}
 function missingUserInfoValuesAreEmptyText() {
     CallerDetails unknown = {};
     test:assertEquals(detailsOf({"sub": "u", "email": "  "}), unknown);
@@ -90,3 +54,34 @@ function missingUserInfoValuesAreEmptyText() {
     test:assertEquals(detailsOf("not an object"), unknown);
 }
 
+
+// Assertions in the shape the gateway sends them; the signature is not read, so it is a fixed text. The first expires
+// in the year 2100, the second has no subject, and the third expired in 1970.
+const VALID_ASSERTION = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEiLCJlbWFpbCI6Ik1hcnkuU2lsdmFAZXhhbXBsZS50ZXN0IiwiZ2l2ZW5fbmFtZSI6Ik1hcnkgQW5uIiwiZmFtaWx5X25hbWUiOiJTaWx2YSIsImV4cCI6NDEwMjQ0NDgwMH0.c2ln";
+const ASSERTION_WITHOUT_SUBJECT = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Im1hcnkuc2lsdmFAZXhhbXBsZS50ZXN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.c2ln";
+const EXPIRED_ASSERTION = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEiLCJleHAiOjF9.c2ln";
+
+@test:Config {}
+function theAssertionGivesTheCallerAndTheirDetails() returns error? {
+    [AsgardeoJwt, CallerDetails] caller = check identityFromAssertion(VALID_ASSERTION);
+    test:assertEquals(caller[0].sub, "user-1");
+    test:assertEquals(caller[1].email, "mary.silva@example.test");
+    test:assertEquals(caller[1].firstName, "Mary Ann");
+    test:assertEquals(caller[1].lastName, "Silva");
+}
+
+@test:Config {}
+function anAssertionWithoutASubjectIsRefused() {
+    test:assertTrue(identityFromAssertion(ASSERTION_WITHOUT_SUBJECT) is error);
+}
+
+@test:Config {}
+function anAssertionThatHasExpiredIsRefused() {
+    test:assertTrue(identityFromAssertion(EXPIRED_ASSERTION) is error);
+}
+
+@test:Config {}
+function textThatIsNotAnAssertionIsRefused() {
+    test:assertTrue(identityFromAssertion("not-an-assertion") is error);
+    test:assertTrue(identityFromAssertion("") is error);
+}

@@ -24,9 +24,9 @@ function aRefusedRequestKeepsTheAtsStatus() {
 }
 
 @test:Config {}
-function anUnreadableReplyBecomesBadGateway() {
+function anUnreadableReplyBecomesAServerError() {
     http:Response|error reply = failedReply(error("unreadable"), "test-request");
-    test:assertTrue(reply is http:Response && reply.statusCode == 502);
+    test:assertTrue(reply is http:Response && reply.statusCode == 500);
 }
 
 function historyEntry(int id, string status = "CREATED", int vacancyId = 7) returns AtsHistoryEntry => {

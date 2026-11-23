@@ -11,12 +11,6 @@ clientSecret = ""
 # signedInMaxPerUser = 60
 # signedInWindowSeconds = 60
 
-[careers_app.jwt.authConfig]
-jwksUrl = ""
-issuer = ""
-audience = ""
-userInfoUrl = ""
-
 # Optional: the onboarding documents step, closed until documentsEnabled is true. Its storage settings are needed only
 # then; the SAS token needs create, write and read permission.
 # [careers_app.documents]

@@ -160,7 +160,7 @@ isolated function failedReply(error err, string requestId) returns http:Response
     } else {
         log:printError("Could not build a vacancy reply from the ATS data",
             errorMessage = types:withoutPersonalData(err.message()), requestId = requestId);
-        resp.statusCode = http:STATUS_BAD_GATEWAY;
+        resp.statusCode = http:STATUS_INTERNAL_SERVER_ERROR;
     }
     resp.setTextPayload(err.message());
     return resp;

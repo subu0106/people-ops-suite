@@ -44,10 +44,9 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
 
     # The signed-in candidate's details, taken from their most recent application.
     resource function get candidates/me(http:RequestContext ctx)
-            returns json|http:Unauthorized|http:Forbidden|http:BadRequest|http:NotFound|http:BadGateway
-                |http:GatewayTimeout {
+            returns json|http:Unauthorized|http:Forbidden|http:BadRequest|http:NotFound|http:InternalServerError {
         string requestId = types:requestIdOf(ctx);
-        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout caller =
+        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:InternalServerError caller =
             callerOf(ctx, requestId);
         if caller !is jwt:CallerDetails {
             return caller;
@@ -61,10 +60,9 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
 
     # Saves changes to the signed-in candidate's details and returns their profile.
     resource function patch candidates/me(http:RequestContext ctx, vacancy:ProfileChanges changes)
-            returns json|http:Unauthorized|http:BadRequest|http:Forbidden|http:NotFound|http:BadGateway
-                |http:GatewayTimeout {
+            returns json|http:Unauthorized|http:BadRequest|http:Forbidden|http:NotFound|http:InternalServerError {
         string requestId = types:requestIdOf(ctx);
-        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout caller =
+        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:InternalServerError caller =
             callerOf(ctx, requestId);
         if caller !is jwt:CallerDetails {
             return caller;
@@ -75,9 +73,9 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
 
     # The signed-in candidate's applications, newest first.
     resource function get applications(http:RequestContext ctx)
-            returns vacancy:ApplicationSummary[]|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout {
+            returns vacancy:ApplicationSummary[]|http:Unauthorized|http:Forbidden|http:InternalServerError {
         string requestId = types:requestIdOf(ctx);
-        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout caller =
+        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:InternalServerError caller =
             callerOf(ctx, requestId);
         if caller !is jwt:CallerDetails {
             return caller;
@@ -91,13 +89,12 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
 
     # The interviews of one of the signed-in candidate's own applications, in the order they take place.
     resource function get applications/[string applicationId]/interviews(http:RequestContext ctx)
-            returns json|http:Unauthorized|http:Forbidden|http:BadRequest|http:NotFound|http:BadGateway
-                |http:GatewayTimeout {
+            returns json|http:Unauthorized|http:Forbidden|http:BadRequest|http:NotFound|http:InternalServerError {
         string requestId = types:requestIdOf(ctx);
         if !types:isValidNumericId(applicationId) {
             return <http:NotFound>{body: {message: "Application not found"}};
         }
-        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout caller =
+        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:InternalServerError caller =
             callerOf(ctx, requestId);
         if caller !is jwt:CallerDetails {
             return caller;
@@ -111,12 +108,12 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
     resource function post applications/[string applicationId]/offer/decision(http:RequestContext ctx,
             vacancy:OfferDecision answer)
             returns json|http:Unauthorized|http:Forbidden|http:BadRequest|http:NotFound|http:Conflict|http:Gone
-                |http:BadGateway|http:GatewayTimeout {
+                |http:InternalServerError {
         string requestId = types:requestIdOf(ctx);
         if !types:isValidNumericId(applicationId) {
             return <http:NotFound>{body: {message: "Application not found"}};
         }
-        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout caller =
+        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:InternalServerError caller =
             callerOf(ctx, requestId);
         if caller !is jwt:CallerDetails {
             return caller;
@@ -163,17 +160,17 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
                 return <http:Gone>{body: {message: "This offer has expired. Please contact HR."}};
             }
         }
-        return <http:BadGateway>{body: {message: "Failed to record your answer"}};
+        return <http:InternalServerError>{body: {message: "Failed to record your answer"}};
     }
 
     # The letter of the offer of one of the signed-in candidate's own applications, read from the ATS.
     resource function get applications/[string applicationId]/offer/letter(http:RequestContext ctx)
-            returns json|http:Unauthorized|http:Forbidden|http:NotFound|http:BadGateway|http:GatewayTimeout {
+            returns json|http:Unauthorized|http:Forbidden|http:NotFound|http:InternalServerError {
         string requestId = types:requestIdOf(ctx);
         if !types:isValidNumericId(applicationId) {
             return <http:NotFound>{body: {message: "Application not found"}};
         }
-        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout caller =
+        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:InternalServerError caller =
             callerOf(ctx, requestId);
         if caller !is jwt:CallerDetails {
             return caller;
@@ -193,13 +190,13 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
         }
         log:printWarn("The offer letter was not loaded", status = resp.statusCode, applicationId = applicationId,
             requestId = requestId);
-        return <http:BadGateway>{body: {message: "Failed to load your offer"}};
+        return <http:InternalServerError>{body: {message: "Failed to load your offer"}};
     }
 
     # Whether the signed-in candidate has submitted the documents for one of their own accepted offers, whether they
     # can still change them and until when, and, when they have submitted, what they saved.
     resource function get applications/[string applicationId]/documents(http:RequestContext ctx)
-            returns json|http:Unauthorized|http:Forbidden|http:NotFound|http:BadGateway|http:GatewayTimeout {
+            returns json|http:Unauthorized|http:Forbidden|http:NotFound|http:InternalServerError {
         if !documents:documentsEnabled {
             return <http:NotFound>{body: {message: "Not available"}};
         }
@@ -207,7 +204,7 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
         if !types:isValidNumericId(applicationId) {
             return <http:NotFound>{body: {message: "Application not found"}};
         }
-        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout caller =
+        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:InternalServerError caller =
             callerOf(ctx, requestId);
         if caller !is jwt:CallerDetails {
             return caller;
@@ -252,7 +249,7 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
     # Stores the signed-in candidate's onboarding documents for one of their own applications whose offer is accepted.
     resource function post applications/[string applicationId]/documents(http:Request req, http:RequestContext ctx)
             returns http:Created|http:BadRequest|http:Unauthorized|http:Forbidden|http:NotFound|http:Conflict
-                |http:BadGateway|http:GatewayTimeout {
+                |http:InternalServerError {
         if !documents:documentsEnabled {
             return <http:NotFound>{body: {message: "Not available"}};
         }
@@ -264,7 +261,7 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
         if user is error {
             return <http:Forbidden>{body: {message: "The caller could not be identified"}};
         }
-        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout caller =
+        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:InternalServerError caller =
             callerOf(ctx, requestId);
         if caller !is jwt:CallerDetails {
             return caller;
@@ -316,7 +313,7 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
     # files they send. A file they do not send stays as it was.
     resource function put applications/[string applicationId]/documents(http:Request req, http:RequestContext ctx)
             returns http:Ok|http:BadRequest|http:Unauthorized|http:Forbidden|http:NotFound|http:Conflict
-                |http:BadGateway|http:GatewayTimeout {
+                |http:InternalServerError {
         if !documents:documentsEnabled {
             return <http:NotFound>{body: {message: "Not available"}};
         }
@@ -328,7 +325,7 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
         if user is error {
             return <http:Forbidden>{body: {message: "The caller could not be identified"}};
         }
-        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout caller =
+        jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:InternalServerError caller =
             callerOf(ctx, requestId);
         if caller !is jwt:CallerDetails {
             return caller;
@@ -384,7 +381,7 @@ service http:InterceptableService / on new http:Listener(9090, requestLimits = {
 }
 
 isolated function profileReply(http:Response|error resp, string failureMessage, string requestId)
-        returns json|http:BadRequest|http:NotFound|http:BadGateway|http:GatewayTimeout {
+        returns json|http:BadRequest|http:NotFound|http:InternalServerError {
     if resp is error {
         return candidateFailure(resp, failureMessage, requestId);
     }
@@ -401,23 +398,15 @@ isolated function profileReply(http:Response|error resp, string failureMessage, 
         return <http:NotFound>{body: {message}};
     }
     log:printError("The ATS refused a profile request", status = resp.statusCode, requestId = requestId);
-    return <http:BadGateway>{body: {message: failureMessage}};
+    return <http:InternalServerError>{body: {message: failureMessage}};
 }
 
-# The caller's details from the identity provider, or a refusal when the account has no email.
+# The caller's details from the gateway assertion, or a refusal when the account has no email.
 isolated function callerOf(http:RequestContext ctx, string requestId)
-        returns jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:BadGateway|http:GatewayTimeout {
-    jwt:AsgardeoJwt|error user = jwt:getUser(ctx);
-    string|error token = jwt:getAccessToken(ctx);
-    if user is error || token is error {
-        return <http:Forbidden>{body: {message: "The caller could not be identified"}};
-    }
-    jwt:CallerDetails|error details = jwt:callerDetails(user, token);
-    if details is jwt:UserInfoRefused {
-        return <http:Unauthorized>{body: {message: "Unauthorized"}};
-    }
+        returns jwt:CallerDetails|http:Unauthorized|http:Forbidden|http:InternalServerError {
+    jwt:CallerDetails|error details = jwt:getCallerDetails(ctx);
     if details is error {
-        return candidateFailure(details, "Failed to read the caller's details", requestId);
+        return <http:Forbidden>{body: {message: "The caller could not be identified"}};
     }
     if details.email == "" {
         return <http:Forbidden>{body: {message: "The account has no email address"}};
@@ -450,10 +439,10 @@ isolated function profileFrom(jwt:CallerDetails caller) returns json => {
 };
 
 isolated function candidateFailure(error err, string failureMessage, string requestId)
-        returns http:BadGateway|http:GatewayTimeout {
+        returns http:InternalServerError {
     log:printError(failureMessage, errorMessage = types:withoutPersonalData(err.message()), requestId = requestId);
     if err is http:ClientError {
-        return <http:GatewayTimeout>{body: {message: "Upstream service unreachable"}};
+        return <http:InternalServerError>{body: {message: "Upstream service unreachable"}};
     }
-    return <http:BadGateway>{body: {message: failureMessage}};
+    return <http:InternalServerError>{body: {message: failureMessage}};
 }
