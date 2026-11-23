@@ -37,20 +37,13 @@ import {
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
-// The name of the error thrown when the backend refuses the ID token, or there is none to send.
+// The name of the error thrown when the backend refuses the access token.
 export const SESSION_EXPIRED_ERROR = "SessionExpiredError";
 
-const sessionEnded = () => {
-  const expired = new Error("Your session has ended.");
-  expired.name = SESSION_EXPIRED_ERROR;
-  return expired;
-};
-
 // The bearer token and timeout every signed-in request carries.
-const requestOptions = (idToken: string) => ({
-  headers: { Authorization: `Bearer ${idToken}` },
+const requestOptions = (accessToken: string) => ({
+  headers: { Authorization: `Bearer ${accessToken}` },
   timeout: REQUEST_TIMEOUT_MS,
-
 });
 
 // Waits for a request and returns its data; a 401 becomes a session expired error so the app can ask for sign-in.
@@ -58,39 +51,41 @@ async function send<T>(request: Promise<AxiosResponse<T>>): Promise<T> {
   try {
     return (await request).data;
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 401) throw sessionEnded();
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      const expired = new Error("Your session has ended.");
+      expired.name = SESSION_EXPIRED_ERROR;
+      throw expired;
+    }
     throw error;
   }
 }
 
-// Asks for a new ID token. It is set by the sign-in code, which owns the session with the identity provider.
-let renewIdToken: (() => Promise<string>) | null = null;
+// Asks for a new access token. It is set by the sign-in code, which owns the session with the identity provider.
+let renewAccessToken: (() => Promise<string>) | null = null;
 export const setTokenRenewer = (renewer: (() => Promise<string>) | null) => {
-  renewIdToken = renewer;
+  renewAccessToken = renewer;
 };
 
 // The renewal that is running, so requests that fail together share one: a refresh token can be used only once.
 let renewing: Promise<string> | null = null;
 const renewOnce = (): Promise<string> => {
-  if (!renewIdToken) return Promise.reject(new Error("The session cannot be renewed."));
+  if (!renewAccessToken) return Promise.reject(new Error("The session cannot be renewed."));
   if (!renewing) {
-    renewing = renewIdToken().finally(() => {
+    renewing = renewAccessToken().finally(() => {
       renewing = null;
     });
   }
   return renewing;
 };
 
-// Sends a request with the ID token. A 401 means the token has run out, so a new one is asked for and the request
-// is sent once more. The session has ended only when no new token can be had, or the new one is refused as well. With
-// no token at all, nothing is sent: a new token is asked for, and the session has ended when there is none.
+// Sends a request with the access token. A 401 means the token has run out, so a new one is asked for and the request
+// is sent once more. The session has ended only when no new token can be had, or the new one is refused as well.
 async function sendRenewing<T>(
-  idToken: string,
+  accessToken: string,
   request: (token: string) => Promise<AxiosResponse<T>>,
 ): Promise<T> {
   try {
-    if (!idToken) throw sessionEnded();
-    return await send(request(idToken));
+    return await send(request(accessToken));
   } catch (error) {
     if (!(error instanceof Error) || error.name !== SESSION_EXPIRED_ERROR) throw error;
     let fresh: string;
@@ -163,18 +158,18 @@ export const clearForcedSignOut = () => {
 export const hasSignInError = (search: string): boolean => new URLSearchParams(search).has("error");
 
 // The signed-in candidate's own profile.
-export async function fetchProfile(idToken: string): Promise<CandidateProfile> {
-  return sendRenewing(idToken, (token) =>
+export async function fetchProfile(accessToken: string): Promise<CandidateProfile> {
+  return sendRenewing(accessToken, (token) =>
     axios.get<CandidateProfile>(`${AppConfig.serviceUrls.candidates}/me`, requestOptions(token)),
   );
 }
 
 // Saves the changes to the candidate's editable details.
 export async function saveProfile(
-  idToken: string,
+  accessToken: string,
   changes: Partial<EditableProfileFields>,
 ): Promise<CandidateProfile> {
-  return sendRenewing(idToken, (token) =>
+  return sendRenewing(accessToken, (token) =>
     axios.patch<CandidateProfile>(
       `${AppConfig.serviceUrls.candidates}/me`,
       changes,
@@ -187,13 +182,13 @@ const refused = (name: string, message: string) => Object.assign(new Error(messa
 
 // Records the candidate's answer to an offer. A 400 (with the reason the backend gives), a 404, a 409 and a 410 each
 // become an error of their own.
-export async function respondToOffer(idToken: string, applicationId: string, answer: OfferAnswer): Promise<void> {
+export async function respondToOffer(accessToken: string, applicationId: string, answer: OfferAnswer): Promise<void> {
   const body =
     answer.response === "accepted"
       ? { decision: "ACCEPTED" }
       : { decision: "DECLINED", declineReason: answer.reason, declineReasonAdditional: answer.comment || undefined };
   try {
-    await sendRenewing(idToken, (token) =>
+    await sendRenewing(accessToken, (token) =>
       axios.post(
         `${AppConfig.serviceUrls.applications}/${encodeURIComponent(applicationId)}/offer/decision`,
         body,
@@ -214,9 +209,9 @@ export async function respondToOffer(idToken: string, applicationId: string, ans
 }
 
 // The letter of the offer of one of the candidate's applications; null when there is no letter to show.
-export async function fetchOfferLetter(idToken: string, applicationId: string): Promise<OfferLetter | null> {
+export async function fetchOfferLetter(accessToken: string, applicationId: string): Promise<OfferLetter | null> {
   try {
-    return await sendRenewing(idToken, (token) =>
+    return await sendRenewing(accessToken, (token) =>
       axios.get<OfferLetter>(
         `${AppConfig.serviceUrls.applications}/${encodeURIComponent(applicationId)}/offer/letter`,
         requestOptions(token),
@@ -230,10 +225,10 @@ export async function fetchOfferLetter(idToken: string, applicationId: string): 
 
 // The interviews of one of the candidate's applications, in the order they take place.
 export async function fetchInterviews(
-  idToken: string,
+  accessToken: string,
   applicationId: string,
 ): Promise<ApplicationInterview[]> {
-  return sendRenewing(idToken, (token) =>
+  return sendRenewing(accessToken, (token) =>
     axios.get<ApplicationInterview[]>(
       `${AppConfig.serviceUrls.applications}/${encodeURIComponent(applicationId)}/interviews`,
       requestOptions(token),
@@ -244,10 +239,10 @@ export async function fetchInterviews(
 // Whether the candidate has submitted the documents for one of their accepted offers, whether they can still change
 // them, and what they saved.
 export async function fetchDocumentsStatus(
-  idToken: string,
+  accessToken: string,
   applicationId: string,
 ): Promise<DocumentsStatus> {
-  return sendRenewing(idToken, (token) =>
+  return sendRenewing(accessToken, (token) =>
     axios.get<DocumentsStatus>(
       `${AppConfig.serviceUrls.applications}/${encodeURIComponent(applicationId)}/documents`,
       requestOptions(token),
@@ -260,9 +255,9 @@ const DOCUMENT_UPLOAD_TIMEOUT_MS = 120_000;
 
 // The documents a candidate is asked for, and the limits every file must meet.
 export async function fetchDocumentRequirements(
-  idToken: string,
+  accessToken: string,
 ): Promise<DocumentRequirements> {
-  return sendRenewing(idToken, (token) =>
+  return sendRenewing(accessToken, (token) =>
     axios.get<DocumentRequirements>(
       `${AppConfig.serviceUrls.documents}/requirements`,
       requestOptions(token),
@@ -272,7 +267,7 @@ export async function fetchDocumentRequirements(
 
 // Sends the chosen files, one per requested document, with the details and the declaration.
 export async function submitDocuments(
-  idToken: string,
+  accessToken: string,
   applicationId: string,
   files: Record<string, File>,
   details: PersonalDetails,
@@ -286,15 +281,15 @@ export async function submitDocuments(
   Object.entries(files).forEach(([key, file]) => form.append(key, file, key));
   const url = `${AppConfig.serviceUrls.applications}/${encodeURIComponent(applicationId)}/documents`;
   // A first submission is a POST; a change is a PUT that carries only the replaced files.
-  await sendRenewing(idToken, (token) => {
+  await sendRenewing(accessToken, (token) => {
     const options = { ...requestOptions(token), timeout: DOCUMENT_UPLOAD_TIMEOUT_MS };
     return changing ? axios.put(url, form, options) : axios.post(url, form, options);
   });
 }
 
 // The signed-in candidate's own applications.
-export async function fetchApplications(idToken: string): Promise<Application[]> {
-  return sendRenewing(idToken, (token) =>
+export async function fetchApplications(accessToken: string): Promise<Application[]> {
+  return sendRenewing(accessToken, (token) =>
     axios.get<Application[]>(AppConfig.serviceUrls.applications, requestOptions(token)),
   );
 }

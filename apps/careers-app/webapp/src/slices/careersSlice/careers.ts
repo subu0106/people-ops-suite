@@ -77,7 +77,7 @@ interface CareersState {
   // The interviews and documents status of each opened application, by application id, kept so a page
   // that is opened again shows them at once.
   applicationExtras: Record<string, ApplicationExtras>;
-  // True when the backend refused the ID token.
+  // True when the backend refused the access token.
   sessionExpired: boolean;
   // Counts the clears of the candidate's data.
   sessionGeneration: number;
@@ -125,22 +125,22 @@ function userRequest<Arg, Result>(type: string, call: (arg: Arg) => Promise<Resu
   });
 }
 
-export const loadProfile = userRequest("careers/loadProfile", (idToken: string) => fetchProfileApi(idToken));
+export const loadProfile = userRequest("careers/loadProfile", (accessToken: string) => fetchProfileApi(accessToken));
 
 export const updateProfile = userRequest(
   "careers/updateProfile",
-  ({ idToken, changes }: { idToken: string; changes: Partial<EditableProfileFields> }) =>
-    saveProfileApi(idToken, changes),
+  ({ accessToken, changes }: { accessToken: string; changes: Partial<EditableProfileFields> }) =>
+    saveProfileApi(accessToken, changes),
 );
 
-export const loadApplications = userRequest("careers/loadApplications", (idToken: string) =>
-  fetchApplicationsApi(idToken),
+export const loadApplications = userRequest("careers/loadApplications", (accessToken: string) =>
+  fetchApplicationsApi(accessToken),
 );
 
 export const respondToOffer = userRequest(
   "careers/respondToOffer",
-  ({ idToken, applicationId, answer }: { idToken: string; applicationId: string; answer: OfferAnswer }) =>
-    respondToOfferApi(idToken, applicationId, answer),
+  ({ accessToken, applicationId, answer }: { accessToken: string; applicationId: string; answer: OfferAnswer }) =>
+    respondToOfferApi(accessToken, applicationId, answer),
 );
 
 const CareersSlice = createSlice({

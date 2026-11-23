@@ -175,7 +175,7 @@ const Applications = () => {
     setRespondingToOffer(true);
     try {
       const token = await getToken();
-      await dispatch(respondToOffer({ idToken: token, applicationId: answeredId, answer })).unwrap();
+      await dispatch(respondToOffer({ accessToken: token, applicationId: answeredId, answer })).unwrap();
       // The status, the dates and the deadline come from the backend, so the applications are loaded again.
       dispatch(refreshApplications());
       if (answer.response === "accepted") {

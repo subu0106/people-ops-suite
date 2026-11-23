@@ -122,7 +122,7 @@ describe("requests that finish after the candidate's data is cleared", () => {
     vi.mocked(api.saveProfile).mockReturnValue(request.promise);
     const store = newStore();
 
-    const done = store.dispatch(updateProfile({ idToken: "token", changes: { firstName: "Previous" } }));
+    const done = store.dispatch(updateProfile({ accessToken: "token", changes: { firstName: "Previous" } }));
     store.dispatch(clearUserData());
     request.resolve(previousProfile);
     await done;
@@ -136,7 +136,7 @@ describe("requests that finish after the candidate's data is cleared", () => {
     const store = newStore();
 
     const done = store.dispatch(
-      respondToOffer({ idToken: "token", applicationId: "a1", answer: { response: "accepted" } }),
+      respondToOffer({ accessToken: "token", applicationId: "a1", answer: { response: "accepted" } }),
     );
     store.dispatch(clearUserData());
     request.reject(Object.assign(new Error("Your session has ended."), { name: "SessionExpiredError" }));
