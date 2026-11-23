@@ -113,15 +113,15 @@ function genderFromTheIdentityProviderIsMappedToTheAtsValues() {
 }
 
 @test:Config {}
-function unreachableCandidateLookupBecomesGatewayTimeout() {
-    http:BadGateway|http:GatewayTimeout failure = candidateFailure(error http:GenericClientError("connection refused"),
+function unreachableCandidateLookupBecomesAServerError() {
+    http:InternalServerError failure = candidateFailure(error http:GenericClientError("connection refused"),
         "failed", "test-request");
-    test:assertTrue(failure is http:GatewayTimeout);
+    test:assertEquals(failure?.body, {message: "Upstream service unreachable"});
 }
 
 @test:Config {}
-function otherCandidateLookupFailuresBecomeBadGateway() {
-    http:BadGateway|http:GatewayTimeout failure = candidateFailure(error("unreadable reply"), "failed",
+function otherCandidateLookupFailuresBecomeAServerError() {
+    http:InternalServerError failure = candidateFailure(error("unreadable reply"), "failed",
         "test-request");
-    test:assertTrue(failure is http:BadGateway);
+    test:assertEquals(failure?.body, {message: "failed"});
 }
