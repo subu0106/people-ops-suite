@@ -41,8 +41,8 @@ export const AsgardeoConfig: BaseURLAuthClientConfig = {
 
 export const APP_NAME = window.config?.APP_NAME ?? "Choreo Labs Careers";
 const ServiceBaseUrl = window.config?.CAREERS_BACKEND_BASE_URL ?? "";
-// The wso2.com careers page, where candidates browse and apply for jobs.
-export const CareersSiteUrl = window.config?.CAREERS_SITE_URL || "https://wso2.com/careers#careers";
+// The Choreo Labs careers page, where candidates browse and apply for jobs.
+export const CareersSiteUrl = window.config?.CAREERS_SITE_URL || "https://choreolabs.com/careers#careers";
 
 export const AppConfig = {
   serviceUrls: {

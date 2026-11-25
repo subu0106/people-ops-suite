@@ -32,7 +32,7 @@ const PDF_PAGE_WIDTH = 794;
 
 // Renders the letter in a hidden frame and saves it as a PDF file in the browser's downloads folder.
 const downloadPdf = async (html: string, jobTitle: string): Promise<void> => {
-  const name = `Offer-Letter-${jobTitle.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "WSO2"}.pdf`;
+  const name = `Offer-Letter-${jobTitle.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "Choreo-Labs"}.pdf`;
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   frame.setAttribute("sandbox", LETTER_FRAME_SANDBOX);

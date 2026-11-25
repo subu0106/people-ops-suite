@@ -102,7 +102,7 @@ export function historyOf(application: Application, interviews: ApplicationInter
     entries.push({
       label: ApplicationStatus.Screening,
       date: screeningDated ? (application.updatedDate ?? null) : null,
-      detail: screeningIsCurrent ? "Current" : "Passed",
+      detail: screeningIsCurrent ? "Current" : "Shortlisted",
     });
   }
   [...interviews]
@@ -178,44 +178,6 @@ export const timeAgo = (value: string) => {
   if (days < 60) return "last month";
   return `${Math.floor(days / 30)} months ago`;
 };
-
-// The upcoming interview of an application at the interview stage.
-export const upcomingInterviewOf = (application: Application, interviews: ApplicationInterview[]) =>
-  application.status === ApplicationStatus.Interview
-    ? interviews.find((interview) => interview.status === "Upcoming")
-    : undefined;
-
-// The one-line next step of an application.
-export function nextStepOf(application: Application, interviews: ApplicationInterview[]): string {
-  switch (application.status) {
-    case ApplicationStatus.Applied:
-      return "Waiting for the hiring team to review your application";
-    case ApplicationStatus.Screening:
-      return "Your profile is being reviewed";
-    case ApplicationStatus.Interview: {
-      const upcoming = upcomingInterviewOf(application, interviews);
-      return upcoming
-        ? `Next: ${upcoming.round} · ${formatDateTime(upcoming.dateTime)}`
-        : "Waiting for the interview outcome";
-    }
-    case ApplicationStatus.Selected:
-      return "You have been selected for this position. Your offer letter will be sent to you soon.";
-    case ApplicationStatus.Offer:
-      return application.offerEmailSubject
-        ? `Your offer was emailed to you with the subject "${application.offerEmailSubject}".`
-        : "An offer has been sent to your email. Please check your inbox.";
-    case ApplicationStatus.OfferAccepted:
-      return "You accepted the offer. The hiring team will contact you with the next steps.";
-    case ApplicationStatus.OfferDeclined:
-      return "You declined the offer";
-    case ApplicationStatus.OfferExpired:
-      return "The offer has expired. Please contact HR if you still want to join.";
-    case ApplicationStatus.Rejected:
-      return "Not selected for this position";
-    default:
-      return "";
-  }
-}
 
 export const interviewChip: Record<ApplicationInterview["status"], { color: string; bg: string }> = {
   // Solid orange for an upcoming interview.

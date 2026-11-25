@@ -23,7 +23,6 @@ import {
   formatDate,
   formatDateTime,
   historyOf,
-  nextStepOf,
   offerDeadlineOf,
   tabOf,
   trackerOf,
@@ -149,7 +148,7 @@ describe("historyOf", () => {
   it("dates screening by when the application last changed while it is at the interview stage", () => {
     const entries = historyOf(application({ status: ApplicationStatus.Interview, updatedDate: "2026-09-20" }), []);
     expect(entries.map((entry) => entry.label)).toEqual(["Applied", "Screening"]);
-    expect(entries[1]).toMatchObject({ date: "2026-09-20", detail: "Passed" });
+    expect(entries[1]).toMatchObject({ date: "2026-09-20", detail: "Shortlisted" });
   });
 
   it("lists the interviews by their own stage names, in the order they take place, with no separate interview line", () => {
@@ -224,27 +223,6 @@ describe("tabOf", () => {
     [ApplicationStatus.Rejected, "closed"],
   ])("files %s under %s", (status, tab) => {
     expect(tabOf(application({ status }))).toBe(tab);
-  });
-});
-
-describe("nextStepOf for an open offer", () => {
-  it("names the email subject so the candidate can find the offer", () => {
-    const offer = application({ status: ApplicationStatus.Offer, offerEmailSubject: "Offer letter" });
-    expect(nextStepOf(offer, [])).toBe('Your offer was emailed to you with the subject "Offer letter".');
-  });
-
-  it("asks the candidate to check the inbox when the subject is not known", () => {
-    expect(nextStepOf(application({ status: ApplicationStatus.Offer }), [])).toBe(
-      "An offer has been sent to your email. Please check your inbox.",
-    );
-  });
-});
-
-describe("nextStepOf for a selected candidate", () => {
-  it("tells the candidate that the offer letter will be sent soon", () => {
-    expect(nextStepOf(application({ status: ApplicationStatus.Selected }), [])).toBe(
-      "You have been selected for this position. Your offer letter will be sent to you soon.",
-    );
   });
 });
 

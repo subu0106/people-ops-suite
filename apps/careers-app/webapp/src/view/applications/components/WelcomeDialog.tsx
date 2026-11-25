@@ -55,7 +55,7 @@ const WelcomeDialog = ({ jobTitle, onSubmitDocuments, onClose }: WelcomeDialogPr
   >
     <Typography fontSize="0.95rem" color="text.primary">
       Congratulations on joining Choreo Labs as {jobTitle}.
-      {onSubmitDocuments && " Please submit the documents we need to complete your onboarding."} The hiring team will
+      {onSubmitDocuments && " Please submit the documents we need to complete your onboarding."} The Onboarding Team will
       contact you with the next steps.
     </Typography>
   </StatusDialog>
