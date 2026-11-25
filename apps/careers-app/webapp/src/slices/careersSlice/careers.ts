@@ -77,6 +77,8 @@ interface CareersState {
   // The interviews and documents status of each opened application, by application id, kept so a page
   // that is opened again shows them at once.
   applicationExtras: Record<string, ApplicationExtras>;
+  // The tab picked on the applications list, kept so the list opens on it again after an application is viewed.
+  applicationsTab: string | null;
   // True when the backend refused the ID token.
   sessionExpired: boolean;
   // Counts the clears of the candidate's data.
@@ -105,6 +107,7 @@ const initialState: CareersState = {
   applications: [],
   applicationsState: State.idle,
   applicationExtras: {},
+  applicationsTab: null,
   sessionExpired: false,
   sessionGeneration: 0,
 };
@@ -180,6 +183,10 @@ const CareersSlice = createSlice({
     refreshApplications: (state) => {
       if (state.applicationsState === State.success) state.applicationsState = State.idle;
     },
+    // Remembers the tab picked on the applications list.
+    setApplicationsTab: (state, action: PayloadAction<string | null>) => {
+      state.applicationsTab = action.payload;
+    },
     // Clears the signed-in candidate's data.
     clearUserData: (state) => {
       state.profile = emptyProfile;
@@ -187,6 +194,7 @@ const CareersSlice = createSlice({
       state.applications = [];
       state.applicationsState = State.idle;
       state.applicationExtras = {};
+      state.applicationsTab = null;
       state.sessionExpired = false;
       state.sessionGeneration += 1;
     },
@@ -234,6 +242,7 @@ export const {
   applicationsFailed,
   retryApplications,
   refreshApplications,
+  setApplicationsTab,
   clearUserData,
 } = CareersSlice.actions;
 

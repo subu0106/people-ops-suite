@@ -23,6 +23,7 @@ import reducer, {
   extrasVersionOf,
   isExtrasFresh,
   setApplicationExtras,
+  setApplicationsTab,
 } from "@slices/careersSlice/careers";
 
 // The slice reads the app's config when it loads, which needs a browser window.
@@ -141,5 +142,17 @@ describe("clearUserData", () => {
       setApplicationExtras({ id: "a1", generation: initial.sessionGeneration, extras: { interviews: [] } }),
     );
     expect(reducer(loaded, clearUserData()).applicationExtras).toEqual({});
+  });
+});
+
+describe("the applications tab", () => {
+  it("is remembered, so the list opens on it again after an application is viewed", () => {
+    expect(initial.applicationsTab).toBeNull();
+    expect(reducer(initial, setApplicationsTab("closed")).applicationsTab).toBe("closed");
+  });
+
+  it("is forgotten when the candidate's data is cleared", () => {
+    const picked = reducer(initial, setApplicationsTab("active"));
+    expect(reducer(picked, clearUserData()).applicationsTab).toBeNull();
   });
 });
