@@ -13,9 +13,9 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 import { Box, Button, Typography } from "@wso2/oxygen-ui";
 import { HeartHandshake } from "@wso2/oxygen-ui-icons-react";
+
 import { useState } from "react";
 
 import type { OfferAnswer } from "@/types/types";
@@ -74,9 +74,9 @@ const DeclineOfferDialog = ({ jobTitle, sending, onDecline, onClose }: DeclineOf
         {jobTitle}
       </Typography>
       <Typography color="text.secondary" mb={2}>
-        Thank you for considering Choreo Labs as your next career opportunity. We&apos;d appreciate it if you could
-        share why you&apos;ve decided to decline our offer. Your feedback will help us improve our candidate
-        experience.
+        Thank you for considering Choreo Labs as your next career opportunity. We&apos;d appreciate
+        it if you could share why you&apos;ve decided to decline our offer. Your feedback will help
+        us improve our candidate experience.
       </Typography>
       {/* The same inputs as the profile and documents forms, so the labels sit in the middle of the boxes. */}
       <Box sx={{ display: "grid", gap: 2, pt: 0.5, textAlign: "left" }}>

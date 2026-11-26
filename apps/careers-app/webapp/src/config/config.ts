@@ -13,7 +13,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 import { BaseURLAuthClientConfig } from "@asgardeo/auth-react";
 
 declare global {
@@ -42,7 +41,8 @@ export const AsgardeoConfig: BaseURLAuthClientConfig = {
 export const APP_NAME = window.config?.APP_NAME ?? "Choreo Labs Careers";
 const ServiceBaseUrl = window.config?.CAREERS_BACKEND_BASE_URL ?? "";
 // The Choreo Labs careers page, where candidates browse and apply for jobs.
-export const CareersSiteUrl = window.config?.CAREERS_SITE_URL || "https://choreolabs.com/careers#careers";
+export const CareersSiteUrl =
+  window.config?.CAREERS_SITE_URL || "https://choreolabs.com/careers#careers";
 
 export const AppConfig = {
   serviceUrls: {

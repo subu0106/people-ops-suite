@@ -13,7 +13,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 import { MapPin, Phone, Video } from "@wso2/oxygen-ui-icons-react";
 
 import type { Application, ApplicationInterview } from "@/types/types";
@@ -45,10 +44,14 @@ const parseDate = (value: string): Date | null => {
     const [year, month, day] = dateOnly.slice(1).map(Number);
     const date = new Date(year, month - 1, day);
     // Rejects a day that does not exist.
-    const exists = date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+    const exists =
+      date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
     return exists ? date : null;
   }
-  const time = value.trim().replace(" ", "T").replace(/(\.\d{3})\d+/, "$1");
+  const time = value
+    .trim()
+    .replace(" ", "T")
+    .replace(/(\.\d{3})\d+/, "$1");
   const date = new Date(hasZone(time) ? time : `${time}Z`);
   return Number.isNaN(date.getTime()) ? null : date;
 };
@@ -62,14 +65,20 @@ export const formatDateTime = (value: string) =>
   parseDate(value)?.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "long" }) ?? "-";
 
 // The tracker's active step, and the step to mark as an error for a rejected application.
-export function trackerOf(application: Application): { activeStep: number; errorStep: number | null } {
+export function trackerOf(application: Application): {
+  activeStep: number;
+  errorStep: number | null;
+} {
   // An offer that ran out is marked as an error on the Offer step, as a rejection is on the step it stopped at.
   if (application.status === ApplicationStatus.OfferExpired) {
     const offerStep = STAGE_INDEX[ApplicationStatus.OfferExpired] ?? 0;
     return { activeStep: offerStep, errorStep: offerStep };
   }
   if (application.status === ApplicationStatus.Rejected) {
-    const reached = Math.max(0, ...(application.timeline ?? []).map((event) => STAGE_INDEX[event.stage] ?? 0));
+    const reached = Math.max(
+      0,
+      ...(application.timeline ?? []).map((event) => STAGE_INDEX[event.stage] ?? 0),
+    );
     return { activeStep: reached, errorStep: reached };
   }
   return { activeStep: STAGE_INDEX[application.status] ?? 0, errorStep: null };
@@ -93,8 +102,13 @@ const FINAL_STATUSES = [
 ];
 
 // The application's history: applied, screened, each interview and the final status.
-export function historyOf(application: Application, interviews: ApplicationInterview[]): HistoryEntry[] {
-  const entries: HistoryEntry[] = [{ label: ApplicationStatus.Applied, date: application.appliedDate }];
+export function historyOf(
+  application: Application,
+  interviews: ApplicationInterview[],
+): HistoryEntry[] {
+  const entries: HistoryEntry[] = [
+    { label: ApplicationStatus.Applied, date: application.appliedDate },
+  ];
   const { status } = application;
   if ((STAGE_INDEX[status] ?? 0) >= STAGE_INDEX[ApplicationStatus.Screening]!) {
     const screeningIsCurrent = status === ApplicationStatus.Screening;
@@ -179,11 +193,12 @@ export const timeAgo = (value: string) => {
   return `${Math.floor(days / 30)} months ago`;
 };
 
-export const interviewChip: Record<ApplicationInterview["status"], { color: string; bg: string }> = {
-  // Solid orange for an upcoming interview.
-  Upcoming: { color: ON_ORANGE, bg: BRAND_ORANGE },
-  Completed: { color: "#059669", bg: "rgba(5,150,105,0.14)" },
-  Cancelled: { color: "#6B7280", bg: "rgba(107,114,128,0.16)" },
-};
+export const interviewChip: Record<ApplicationInterview["status"], { color: string; bg: string }> =
+  {
+    // Solid orange for an upcoming interview.
+    Upcoming: { color: ON_ORANGE, bg: BRAND_ORANGE },
+    Completed: { color: "#059669", bg: "rgba(5,150,105,0.14)" },
+    Cancelled: { color: "#6B7280", bg: "rgba(107,114,128,0.16)" },
+  };
 
 export const interviewIcon = { Video, Phone, Onsite: MapPin };

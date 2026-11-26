@@ -54,7 +54,8 @@ const PANEL_TONES = {
     badge: BRAND_TINT.soft,
     background: "linear-gradient(135deg, rgba(255,103,0,0.12) 0%, rgba(255,103,0,0.03) 100%)",
     border: BRAND_TINT.border,
-  },  danger: {
+  },
+  danger: {
     color: "#EF4444",
     badge: "rgba(239,68,68,0.14)",
     background: "linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(239,68,68,0.03) 100%)",
@@ -98,7 +99,13 @@ const OutcomePanel = ({ tone, icon, title, children }: OutcomePanelProps) => (
         {icon}
       </Box>
       <Box>
-        <Typography fontWeight={800} fontSize={{ xs: "1.05rem", sm: "1.2rem" }} lineHeight={1.3} color="text.primary" mb={1}>
+        <Typography
+          fontWeight={800}
+          fontSize={{ xs: "1.05rem", sm: "1.2rem" }}
+          lineHeight={1.3}
+          color="text.primary"
+          mb={1}
+        >
           {title}
         </Typography>
         {children}
@@ -184,8 +191,8 @@ const ApplicationDetails = ({
         {application.status === ApplicationStatus.Applied && (
           <OutcomePanel tone="brand" icon={<Info size={28} />} title="Thank you for applying!">
             <Typography fontSize="0.9rem" lineHeight={1.7} color="text.primary">
-              We&apos;ve received your application, and our hiring team will carefully review your profile. We&apos;ll
-              keep you updated on the next steps.
+              We&apos;ve received your application, and our hiring team will carefully review your
+              profile. We&apos;ll keep you updated on the next steps.
             </Typography>
           </OutcomePanel>
         )}
@@ -199,17 +206,19 @@ const ApplicationDetails = ({
         )}
 
         {application.status === ApplicationStatus.Interview && (
-          <OutcomePanel tone="brand" icon={<Info size={28} />} title="You&apos;re making progress!">
-            <Typography fontSize="0.9rem" lineHeight={1.7} color="text.primary">Your application has moved to the interview stage.</Typography>
+          <OutcomePanel tone="brand" icon={<Info size={28} />} title="You're making progress!">
+            <Typography fontSize="0.9rem" lineHeight={1.7} color="text.primary">
+              Your application has moved to the interview stage.
+            </Typography>
           </OutcomePanel>
         )}
 
         {application.status === ApplicationStatus.Selected && (
           <OutcomePanel tone="success" icon={<Award size={28} />} title="Great news!">
             <Typography fontSize="0.9rem" lineHeight={1.7} color="text.primary">
-              You&apos;ve successfully made it through our interview process. We&apos;re now working on the next steps
-              and will be sharing your offer details with you shortly. We&apos;re excited about the possibility of
-              having you on board!
+              You&apos;ve successfully made it through our interview process. We&apos;re now working
+              on the next steps and will be sharing your offer details with you shortly. We&apos;re
+              excited about the possibility of having you on board!
             </Typography>
           </OutcomePanel>
         )}
@@ -217,8 +226,8 @@ const ApplicationDetails = ({
         {actionNeeded && (
           <OutcomePanel tone="success" icon={<Award size={28} />} title="Congratulations!">
             <Typography fontSize="0.9rem" lineHeight={1.7} color="text.primary">
-              Your offer letter is ready! Please check your email and review your offer. Remember to accept or decline
-              it{deadline ? ` before ${deadline.date} (anywhere on Earth)` : ""}.
+              Your offer letter is ready! Please check your email and review your offer. Remember to
+              accept or decline it{deadline ? ` before ${deadline.date} (anywhere on Earth)` : ""}.
             </Typography>
             <Box sx={{ mt: 2, mb: -3 }}>
               <OfferActions
@@ -238,8 +247,8 @@ const ApplicationDetails = ({
             title={deadline ? `Your offer expired on ${deadline.date}.` : "Your offer has expired."}
           >
             <Typography fontSize="0.9rem" lineHeight={1.7} color="text.primary">
-              If you&apos;re still interested in joining our team, please get in touch with our People Operation team to
-              discuss the next steps.
+              If you&apos;re still interested in joining our team, please get in touch with our
+              People Operations team to discuss the next steps.
             </Typography>
           </OutcomePanel>
         )}
@@ -247,8 +256,9 @@ const ApplicationDetails = ({
         {application.status === ApplicationStatus.OfferAccepted && (
           <OutcomePanel tone="success" icon={<Award size={28} />} title="Congratulations!">
             <Typography fontSize="0.9rem" lineHeight={1.7} color="text.primary">
-              You&apos;ve officially accepted our offer. We&apos;re excited to have you join the team! Our Onboarding
-              Team will be in touch with you soon to guide you through the next steps.
+              You&apos;ve officially accepted our offer. We&apos;re excited to have you join the
+              team! Our Onboarding Team will be in touch with you soon to guide you through the next
+              steps.
             </Typography>
             <Box sx={{ my: 1.5 }}>
               <OfferLetterButton applicationId={application.id} jobTitle={application.jobTitle} />
@@ -327,9 +337,10 @@ const ApplicationDetails = ({
         )}
 
         {application.status === ApplicationStatus.OfferDeclined && (
-          <OutcomePanel tone="brand" icon={<Info size={28} />} title="You&apos;ve declined this offer.">
+          <OutcomePanel tone="brand" icon={<Info size={28} />} title="You've declined this offer.">
             <Typography fontSize="0.9rem" lineHeight={1.7} color="text.primary">
-              Thank you for considering a career with us. We wish you all the best in your future endeavours!
+              Thank you for considering a career with us. We wish you all the best in your future
+              endeavours!
             </Typography>
           </OutcomePanel>
         )}
@@ -338,11 +349,11 @@ const ApplicationDetails = ({
           <OutcomePanel
             tone="danger"
             icon={<Info size={28} />}
-            title="Thank you for taking the time to go through our interview process."
+            title="Thank you for your interest in joining us."
           >
             <Typography fontSize="0.9rem" lineHeight={1.7} color="text.primary">
-              Although you weren&apos;t selected this time, we truly appreciate the time and effort you&apos;ve invested
-              in your application.
+              Although you weren&apos;t selected this time, we truly appreciate the time and effort
+              you&apos;ve invested in your application.
             </Typography>
           </OutcomePanel>
         )}

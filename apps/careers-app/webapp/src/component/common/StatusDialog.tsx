@@ -13,9 +13,10 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 import { Box, Dialog, DialogActions, DialogContent, IconButton, Typography } from "@wso2/oxygen-ui";
 import { X } from "@wso2/oxygen-ui-icons-react";
+
+import { useId } from "react";
 
 import { BRAND_ORANGE, BRAND_TINT, useIsDark } from "@config/brand";
 
@@ -52,15 +53,20 @@ const StatusDialog = ({
   actions,
 }: StatusDialogProps) => {
   const isDark = useIsDark();
+  // The title names the pop-up for screen readers.
+  const titleId = useId();
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
+      aria-labelledby={titleId}
       fullWidth
       maxWidth={maxWidth}
       // The page behind is dimmed more in dark mode, so the card stands out from it in both modes.
-      slotProps={{ backdrop: { sx: { backgroundColor: isDark ? "rgba(2,6,16,0.78)" : undefined } } }}
+      slotProps={{
+        backdrop: { sx: { backgroundColor: isDark ? "rgba(2,6,16,0.78)" : undefined } },
+      }}
       PaperProps={{
         sx: {
           position: "relative",
@@ -109,7 +115,9 @@ const StatusDialog = ({
       </IconButton>
       <DialogContent sx={{ pt: 5, pb: 1, position: "relative" }}>
         {illustration ? (
-          <Box sx={{ mx: "auto", mb: 2, display: "flex", justifyContent: "center" }}>{illustration}</Box>
+          <Box sx={{ mx: "auto", mb: 2, display: "flex", justifyContent: "center" }}>
+            {illustration}
+          </Box>
         ) : (
           <Box
             sx={{
@@ -129,12 +137,21 @@ const StatusDialog = ({
             {icon}
           </Box>
         )}
-        <Typography fontWeight={800} fontSize="1.7rem" lineHeight={1.25} color="text.primary" mb={1.5}>
+        <Typography
+          id={titleId}
+          fontWeight={800}
+          fontSize="1.7rem"
+          lineHeight={1.25}
+          color="text.primary"
+          mb={1.5}
+        >
           {title}
         </Typography>
         {children}
       </DialogContent>
-      <DialogActions sx={{ justifyContent: "center", gap: 1.5, pb: 4, pt: 2.5, position: "relative" }}>
+      <DialogActions
+        sx={{ justifyContent: "center", gap: 1.5, pb: 4, pt: 2.5, position: "relative" }}
+      >
         {actions}
       </DialogActions>
     </Dialog>

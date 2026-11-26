@@ -13,7 +13,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 import { PayloadAction, createAsyncThunk, createSlice, isRejected } from "@reduxjs/toolkit";
 
 import {
@@ -26,11 +25,11 @@ import {
   State,
 } from "@/types/types";
 import {
+  SESSION_EXPIRED_ERROR,
   fetchApplications as fetchApplicationsApi,
   fetchProfile as fetchProfileApi,
   respondToOffer as respondToOfferApi,
   saveProfile as saveProfileApi,
-  SESSION_EXPIRED_ERROR,
 } from "@utils/profileService";
 
 // The fields of ApplicationExtras that are loaded from the backend.
@@ -66,7 +65,12 @@ export function isExtrasFresh(
   now: number = Date.now(),
 ): boolean {
   const mark = extras?.loaded?.[field];
-  return extras?.[field] !== undefined && mark !== undefined && mark.version === version && now - mark.at < EXTRAS_FRESH_MS;
+  return (
+    extras?.[field] !== undefined &&
+    mark !== undefined &&
+    mark.version === version &&
+    now - mark.at < EXTRAS_FRESH_MS
+  );
 }
 
 interface CareersState {
@@ -117,7 +121,8 @@ function userRequest<Arg, Result>(type: string, call: (arg: Arg) => Promise<Resu
   return createAsyncThunk<Result, Arg>(type, async (arg, { getState }) => {
     const generation = () => (getState() as { careers: CareersState }).careers.sessionGeneration;
     const started = generation();
-    const stale = () => Object.assign(new Error("The candidate signed out."), { name: STALE_SESSION_ERROR });
+    const stale = () =>
+      Object.assign(new Error("The candidate signed out."), { name: STALE_SESSION_ERROR });
     try {
       const result = await call(arg);
       if (generation() !== started) throw stale();
@@ -128,7 +133,9 @@ function userRequest<Arg, Result>(type: string, call: (arg: Arg) => Promise<Resu
   });
 }
 
-export const loadProfile = userRequest("careers/loadProfile", (idToken: string) => fetchProfileApi(idToken));
+export const loadProfile = userRequest("careers/loadProfile", (idToken: string) =>
+  fetchProfileApi(idToken),
+);
 
 export const updateProfile = userRequest(
   "careers/updateProfile",
@@ -142,8 +149,15 @@ export const loadApplications = userRequest("careers/loadApplications", (idToken
 
 export const respondToOffer = userRequest(
   "careers/respondToOffer",
-  ({ idToken, applicationId, answer }: { idToken: string; applicationId: string; answer: OfferAnswer }) =>
-    respondToOfferApi(idToken, applicationId, answer),
+  ({
+    idToken,
+    applicationId,
+    answer,
+  }: {
+    idToken: string;
+    applicationId: string;
+    answer: OfferAnswer;
+  }) => respondToOfferApi(idToken, applicationId, answer),
 );
 
 const CareersSlice = createSlice({
